@@ -52,6 +52,12 @@
 
 2026-08-06 用這個方式部署了 `ai-video-studio-tts`，網址 `https://ai-video-studio-tts.pear-sea-880.workers.dev` 已回填進 `index.html` 的 `DEFAULT_TTS_WORKER_URL` 並推上 GitHub Pages。**⚠️ 這個網址目前是暫時性的**——使用者必須在部署後 60 分鐘內點開認領網址完成綁定（需要使用者自己登入或註冊一個真實 Cloudflare 帳號，這步驟不能由 Claude 代勞），否則配音功能會在 1 小時後失效。若逾時失效，重新部署只需要在這個資料夾內再跑一次 `npx wrangler deploy`（使用者已認領過帳號的話，`wrangler login` 一次即可長期使用，不需要每次都走臨時帳號流程）。
 
+## 引導使用者申請專屬 Cloudflare 代理（2026-08-06 新增）
+
+「03 配音」多了一個「🚀 想擁有自己專屬的配音服務？」`<details>` 面板，目的是分流大家共用預設代理的流量、也讓使用者不依賴作者的暫時帳號。內容是免帳號登入操作的圖形介面步驟（Cloudflare Dashboard 網頁「Create Worker」→「Edit code」貼上→「Deploy」），**不要求使用者裝 Node/wrangler CLI**——這是刻意的設計取捨，因為這個頁面的訪客是一般人，不是開發者。
+
+`worker.js` 原始碼整份用 `<script type="text/plain" id="workerSourceCode">` 內嵌在頁面裡（跟主程式邏輯的 `<script>` 完全分開，瀏覽器不會執行它，只當純文字讀取），供頁面上的「📋 複製程式碼」按鈕讀出塞進一個 `readonly textarea` 讓使用者複製貼到 Cloudflare 網頁編輯器。**踩坑**：這個 `text/plain` script 標籤一開始放在主程式 `<script>` 之後（檔案尾端），導致主程式初始化時 `document.getElementById('workerSourceCode')` 還沒解析到、抓到 `null` 而整段初始化炸掉——**HTML 是邊解析邊建 DOM，出現在後面的元素在前面的 `<script>` 執行時還不存在**，修法是把這個 `text/plain` 區塊搬到主程式 `<script>` 標籤之前（`</footer>` 之後）。用 Python 腳本做這個搬移（不是手動剪貼），順便做了「搬移後內容跟 `worker.js` 檔案逐字元比對相同」的自動驗證，避免手動搬移打字出錯。
+
 ## 待辦
 
 - manual.html 的「跟其他版本的差異」小節連結指向 `ai-video-studio-lite`，兩個 repo 之後可以互相連結。
