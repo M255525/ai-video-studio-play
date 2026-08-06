@@ -1187,6 +1187,18 @@ async function playSegment(seg, ctx, W, H, audioCtx, recDest, withSubs, portrait
   video.src = '';
   srcNode.disconnect();
 }
+function unlockAudioPlayback(){
+  // 手機瀏覽器（尤其 iOS Safari）要求音訊播放必須直接由使用者手勢觸發；
+  // 合成流程中每段配音播放前要先 await 影片素材的 loadeddata 網路事件，
+  // 等真正呼叫 audioEl.play() 時已經跨出瀏覽器認定的手勢有效範圍而被擋下
+  // （NotAllowedError: play() can only be initiated by a user gesture.）。
+  // 修法：在按鈕點擊當下（still 在手勢範圍內）同步播放一段極短靜音音檔，
+  // 藉此解鎖這個分頁後續所有的 <audio>.play() 呼叫。
+  try{
+    const silence = new Audio('data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA');
+    silence.play().then(()=>silence.pause()).catch(()=>{});
+  }catch(e){}
+}
 async function runCompose(){
   const missing = [];
   state.segments.forEach((s,i)=>{
@@ -1197,6 +1209,8 @@ async function runCompose(){
   if(missing.length){ alert('尚未就緒：\n'+missing.join('\n')); return; }
   const mime = pickMime();
   if(!mime){ alert('這個瀏覽器不支援即時錄製，請改用 Chrome 或 Edge'); return; }
+
+  unlockAudioPlayback();
 
   const portrait = $('orientation').value === 'portrait';
   const W = portrait ? 1080 : 1920, H = portrait ? 1920 : 1080;
