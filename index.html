@@ -227,7 +227,7 @@ body.has-marquee{padding-top:32px}
     <details id="keyPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
       <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels API 金鑰</summary>
       <div class="row" style="margin-top:10px">
-        <input type="password" id="pexelsKey" style="width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰">
+        <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰">
         <button id="btnSaveKey">儲存</button>
       </div>
       <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
@@ -247,7 +247,7 @@ body.has-marquee{padding-top:32px}
     <details id="ttsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
       <summary style="cursor:pointer;color:var(--muted)">🔧 語音服務代理網址</summary>
       <div class="row" style="margin-top:10px">
-        <input type="text" id="ttsWorkerUrl" style="width:360px" placeholder="https://xxx.workers.dev/">
+        <input type="text" id="ttsWorkerUrl" style="width:100%;max-width:360px" placeholder="https://xxx.workers.dev/">
         <button id="btnSaveTtsUrl">儲存</button>
       </div>
       <p class="hint">瀏覽器沒辦法直接呼叫線上配音服務（會被安全限制擋掉），需要一個極輕量的代理網址幫忙轉發。這個網址只存在你的瀏覽器。</p>
@@ -642,7 +642,7 @@ function renderPicker(){
       <div class="seg-top"><span class="seg-idx">S${i+1}</span>
         <span class="seg-text">${esc(seg.text)}</span></div>
       <div class="meta">
-        <input type="text" value="${esc(seg.keyword)}" data-kw="${i}" style="width:240px" aria-label="搜尋關鍵字">
+        <input type="text" value="${esc(seg.keyword)}" data-kw="${i}" style="width:100%;max-width:240px" aria-label="搜尋關鍵字">
         <button data-search="${i}">搜尋影片</button>
         <button data-inspire="${i}" title="從常用關鍵字挑選">💡 靈感</button>
         <span class="tc" id="pickState${i}">${seg.clip?`已選 · 素材 ${tc(seg.clip.duration)}`:'未選片'}</span>
