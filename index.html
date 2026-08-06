@@ -296,6 +296,21 @@ body.has-marquee{padding-top:32px}
     <span class="stage-status"><span class="dot idle" id="dot4"></span><span id="st4">等待素材</span></span>
   </div>
   <div class="stage-body">
+    <details id="musicPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
+      <summary style="cursor:pointer;color:var(--muted)">🎵 配樂（選用，不上傳也能合成影片）</summary>
+      <div class="row" style="margin-top:10px">
+        <input type="file" id="musicUpload" accept="audio/*" aria-label="上傳配樂音樂檔">
+        <button id="btnRemoveMusic" style="display:none">移除配樂</button>
+      </div>
+      <div class="row" id="musicVolumeRow" style="display:none;margin-top:10px">
+        <label class="opt" style="width:100%">配樂音量 <span id="musicVolumeLabel"></span>
+          <input type="range" id="musicVolume" min="0" max="100" value="25" style="width:100%;max-width:320px;display:block;margin-top:6px">
+        </label>
+      </div>
+      <p class="hint">上傳一首音樂當背景配樂，合成時會自動循環播放並與配音混音（結尾 2 秒淡出）。只存在你的瀏覽器裡，不會上傳到任何伺服器；不上傳也完全可以正常合成影片。請確保自己擁有該音樂的合法使用權利。建議檔案在數十 MB 內。</p>
+      <p class="jobmsg" id="musicMsg"></p>
+      <div id="musicPreview"></div>
+    </details>
     <div class="row">
       <label class="opt"><input type="checkbox" id="subtitles" checked> 燒錄字幕</label>
       <button class="primary" id="btnCompose">合成影片</button>
@@ -314,9 +329,10 @@ body.has-marquee{padding-top:32px}
 </main>
 <footer style="max-width:980px;margin:0 auto;padding:0 20px 40px;color:var(--muted);font-size:12.5px;line-height:1.8">
   <p>⚠ 語音採線上制式聲音，非真人聲音克隆。合成完全在瀏覽器內完成，輸出格式依瀏覽器支援自動選擇（優先 .mp4，不支援時退回 .webm）。</p>
-  <p>影片素材來自
-    <a href="https://www.pexels.com" target="_blank" style="color:var(--muted)">Pexels</a>（依 Pexels 授權條款免費使用）。
-    <a href="manual.html" target="_blank" style="color:var(--amber)">📖 操作手冊</a></p>
+  <p>⚠ 使用限制：影片素材來自
+    <a href="https://www.pexels.com" target="_blank" style="color:var(--muted)">Pexels</a>，依 Pexels 授權條款可免費使用（禁止原封不動轉售素材本身）；若改用「我的影片庫」上傳自己的影片、或上傳配樂音樂，請確保自己擁有該素材的合法使用權利，本工具不負責使用者上傳內容的授權爭議。</p>
+  <p><a href="manual.html" target="_blank" style="color:var(--amber)">📖 操作手冊</a></p>
+  <p style="margin-top:10px">AI 影音工坊（純瀏覽器版） · 創作者 Mark Tsai（蔡豐全） · <a href="mailto:tsaimark@gmail.com" style="color:var(--muted)">tsaimark@gmail.com</a></p>
 </footer>
 <script type="text/plain" id="workerSourceCode">
 /**
@@ -503,6 +519,7 @@ const DEFAULT_TTS_WORKER_URL = 'https://ai-video-studio-tts.pear-sea-880.workers
 const state = {
   segments: [],   // {text, keyword, clip:{url,id,thumb,duration,width,height}, candidates:[], audio:{blobUrl,buffer,duration}}
   voice: null,
+  music: null,    // {name, blobUrl} — 重新整理後要重新上傳，跟配音/合成結果一樣不持久
 };
 
 // ---------- 存取（AudioBuffer/Blob 無法存進 localStorage，重新整理後配音要重做） ----------
@@ -511,6 +528,7 @@ function save(){ localStorage.setItem('avsWeb_state', JSON.stringify({
   segments: state.segments.map(s => ({ text: s.text, keyword: s.keyword, clip: s.clip, candidates: s.candidates })),
   voice: state.voice, rate: $('rate').value,
   orientation: $('orientation').value, subtitles: $('subtitles').checked,
+  musicVolume: $('musicVolume').value,
 })); }
 function load(){
   try{
@@ -522,6 +540,7 @@ function load(){
     if(s.rate) $('rate').value = s.rate;
     $('orientation').value = s.orientation||'landscape';
     $('subtitles').checked = s.subtitles!==false;
+    if(s.musicVolume) $('musicVolume').value = s.musicVolume;
   }catch(e){}
 }
 
@@ -1202,6 +1221,17 @@ async function runCompose(){
   const audioEl = new Audio('data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA');
   audioEl.play().catch(()=>{});
 
+  // 配樂（選用）：同一個手勢範圍內立刻同步播放真正的配樂檔案本身即可解鎖，
+  // 不需要另外的靜音音檔——之後會整段循環播放到合成結束。
+  const musicVolume = Number($('musicVolume').value || 25) / 100;
+  let musicEl = null;
+  if(state.music){
+    musicEl = new Audio(state.music.blobUrl);
+    musicEl.loop = true;
+    musicEl.volume = musicVolume;
+    musicEl.play().catch(()=>{});
+  }
+
   const portrait = $('orientation').value === 'portrait';
   const W = portrait ? 1080 : 1920, H = portrait ? 1920 : 1080;
   const canvas = $('composeCanvas');
@@ -1215,6 +1245,11 @@ async function runCompose(){
   const srcNode = audioCtx.createMediaElementSource(audioEl);
   srcNode.connect(recDest);
   srcNode.connect(audioCtx.destination);
+  if(musicEl){
+    const musicSrcNode = audioCtx.createMediaElementSource(musicEl);
+    musicSrcNode.connect(recDest);
+    musicSrcNode.connect(audioCtx.destination);
+  }
   const canvasStream = canvas.captureStream(30);
   const stream = new MediaStream([...canvasStream.getVideoTracks(), ...recDest.stream.getAudioTracks()]);
 
@@ -1232,11 +1267,18 @@ async function runCompose(){
 
   const total = totalDuration();
   const t0 = performance.now();
+  const FADE_SEC = 2;
   let progTimer = setInterval(()=>{
     const elapsed = (performance.now()-t0)/1000;
     const pct = Math.min(99, Math.round(elapsed/Math.max(total,0.1)*100));
     $('cpBar').style.width = pct+'%';
     $('cpMsg').textContent = `即時錄製中... ${pct}%（約 ${tc(Math.max(0,total-elapsed))} 剩餘）`;
+    if(musicEl){
+      const fadeStart = total - FADE_SEC;
+      musicEl.volume = elapsed >= fadeStart
+        ? Math.max(0, musicVolume * (1 - (elapsed-fadeStart)/FADE_SEC))
+        : musicVolume;
+    }
   }, 300);
 
   try{
@@ -1282,12 +1324,57 @@ async function runCompose(){
     $('cpMsg').textContent = '合成失敗：'+e.message;
     $('cpMsg').classList.add('err');
   }finally{
+    if(musicEl){ musicEl.pause(); musicEl.src = ''; }
     $('btnCompose').disabled = false;
     initComposeHint();
   }
 }
 $('btnCompose').addEventListener('click', runCompose);
 $('subtitles').addEventListener('change', save);
+
+// ---------- 配樂 ----------
+function renderMusicPanel(){
+  const has = !!state.music;
+  $('btnRemoveMusic').style.display = has ? '' : 'none';
+  $('musicVolumeRow').style.display = has ? '' : 'none';
+  $('musicVolumeLabel').textContent = $('musicVolume').value + '%';
+  $('musicPreview').innerHTML = has
+    ? `<p class="hint">目前配樂：${esc(state.music.name)}</p><audio src="${state.music.blobUrl}" controls style="width:100%;max-width:400px"></audio>`
+    : '';
+}
+$('musicUpload').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  $('musicMsg').textContent = '';
+  $('musicMsg').classList.remove('err');
+  // 先確認瀏覽器讀得出這個檔案（不是不支援的音訊格式/損毀檔案）再收下
+  const url = URL.createObjectURL(file);
+  const probe = new Audio();
+  try{
+    await new Promise((resolve, reject)=>{
+      probe.addEventListener('loadedmetadata', resolve, {once:true});
+      probe.addEventListener('error', ()=>reject(new Error('無法讀取此音樂檔（格式不支援或檔案損毀）')), {once:true});
+      probe.src = url;
+    });
+  }catch(err){
+    URL.revokeObjectURL(url);
+    $('musicMsg').textContent = err.message;
+    $('musicMsg').classList.add('err');
+    return;
+  }
+  if(state.music) URL.revokeObjectURL(state.music.blobUrl);
+  state.music = { name: file.name, blobUrl: url };
+  renderMusicPanel();
+});
+$('btnRemoveMusic').addEventListener('click', ()=>{
+  if(!state.music) return;
+  URL.revokeObjectURL(state.music.blobUrl);
+  state.music = null;
+  renderMusicPanel();
+});
+$('musicVolume').addEventListener('input', ()=>{ $('musicVolumeLabel').textContent = $('musicVolume').value + '%'; });
+$('musicVolume').addEventListener('change', save);
 
 // ---------- 其他 ----------
 function refreshStatus(){
@@ -1309,7 +1396,7 @@ $('btnReset').addEventListener('click', ()=>{
   location.reload();
 });
 
-load(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint();
+load(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint(); renderMusicPanel();
 if(state.segments.length){
   $('parseInfo').textContent = `已載入上次的 ${state.segments.length} 段（配音需重新生成）。`;
   setDot(1,'ok',`${state.segments.length} 段`);
