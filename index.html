@@ -1146,7 +1146,7 @@ function initComposeHint(){
     ? '此瀏覽器支援直接輸出 .mp4。'
     : '此瀏覽器僅支援直接輸出 .webm（可用線上工具或 ffmpeg 轉成 .mp4）；較新版本的 Chrome / Edge 通常能直接輸出 .mp4。';
 }
-async function playSegment(seg, ctx, W, H, audioCtx, recDest, withSubs, portrait, onTick){
+async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, onTick){
   const clipUrl = await resolveClipUrl(seg.clip);
   const video = document.createElement('video');
   if(seg.clip.source !== 'upload') video.crossOrigin = 'anonymous'; // 本機 blob 不需要、也不該加 crossOrigin
@@ -1160,13 +1160,11 @@ async function playSegment(seg, ctx, W, H, audioCtx, recDest, withSubs, portrait
   });
   await video.play();
 
-  // 用全新的 <audio> 元素播放（不是 decodeAudioData），這個服務吐出的 mp3 幀邊界
-  // 偶有不齊，瀏覽器原生播放管線能容忍、decodeAudioData 卻會直接拒收，見 measureAudioDuration() 註解
-  const audioEl = new Audio();
+  // 重複使用同一個已在使用者手勢中播放過的 <audio> 元素（見 runCompose 內建立處），
+  // 只換 src 播放（不是 decodeAudioData）——這個服務吐出的 mp3 幀邊界偶有不齊，
+  // 瀏覽器原生播放管線能容忍、decodeAudioData 卻會直接拒收，見 measureAudioDuration() 註解。
+  audioEl.pause();
   audioEl.src = seg.audio.blobUrl;
-  const srcNode = audioCtx.createMediaElementSource(audioEl);
-  srcNode.connect(recDest);
-  srcNode.connect(audioCtx.destination);
 
   let raf = null;
   function draw(){
@@ -1185,19 +1183,6 @@ async function playSegment(seg, ctx, W, H, audioCtx, recDest, withSubs, portrait
   cancelAnimationFrame(raf);
   video.pause();
   video.src = '';
-  srcNode.disconnect();
-}
-function unlockAudioPlayback(){
-  // 手機瀏覽器（尤其 iOS Safari）要求音訊播放必須直接由使用者手勢觸發；
-  // 合成流程中每段配音播放前要先 await 影片素材的 loadeddata 網路事件，
-  // 等真正呼叫 audioEl.play() 時已經跨出瀏覽器認定的手勢有效範圍而被擋下
-  // （NotAllowedError: play() can only be initiated by a user gesture.）。
-  // 修法：在按鈕點擊當下（still 在手勢範圍內）同步播放一段極短靜音音檔，
-  // 藉此解鎖這個分頁後續所有的 <audio>.play() 呼叫。
-  try{
-    const silence = new Audio('data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA');
-    silence.play().then(()=>silence.pause()).catch(()=>{});
-  }catch(e){}
 }
 async function runCompose(){
   const missing = [];
@@ -1210,7 +1195,12 @@ async function runCompose(){
   const mime = pickMime();
   if(!mime){ alert('這個瀏覽器不支援即時錄製，請改用 Chrome 或 Edge'); return; }
 
-  unlockAudioPlayback();
+  // 建立整段合成過程共用的單一 <audio> 元素，並在使用者手勢範圍內（還沒 await
+  // 任何東西）立刻同步播放一次——iOS Safari 的自動播放解鎖是綁定在「這個特定
+  // 元素實例」上，不是整頁性的；之後在合成迴圈裡非同步重複幫同一個元素換 src
+  // 播放，就不需要再次手勢（見下方 playSegment 內的用法與註解）。
+  const audioEl = new Audio('data:audio/wav;base64,UklGRiUAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQEAAACA');
+  audioEl.play().catch(()=>{});
 
   const portrait = $('orientation').value === 'portrait';
   const W = portrait ? 1080 : 1920, H = portrait ? 1920 : 1080;
@@ -1222,6 +1212,9 @@ async function runCompose(){
   const audioCtx = getAudioCtx();
   if(audioCtx.state === 'suspended') await audioCtx.resume();
   const recDest = audioCtx.createMediaStreamDestination();
+  const srcNode = audioCtx.createMediaElementSource(audioEl);
+  srcNode.connect(recDest);
+  srcNode.connect(audioCtx.destination);
   const canvasStream = canvas.captureStream(30);
   const stream = new MediaStream([...canvasStream.getVideoTracks(), ...recDest.stream.getAudioTracks()]);
 
@@ -1250,7 +1243,7 @@ async function runCompose(){
     recorder.start(500);
     const withSubs = $('subtitles').checked;
     for(let i=0;i<state.segments.length;i++){
-      await playSegment(state.segments[i], ctx, W, H, audioCtx, recDest, withSubs, portrait);
+      await playSegment(state.segments[i], ctx, W, H, audioEl, withSubs, portrait);
     }
     recorder.stop();
     await new Promise(resolve => { recorder.onstop = resolve; });
