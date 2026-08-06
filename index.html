@@ -232,6 +232,15 @@ body.has-marquee{padding-top:32px}
       </div>
       <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
     </details>
+    <details id="myClipsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
+      <summary style="cursor:pointer;color:var(--muted)">📁 我的影片庫（上傳自己的影片素材）</summary>
+      <div class="row" style="margin-top:10px">
+        <input type="file" id="myClipUpload" accept="video/*" multiple aria-label="上傳影片檔案">
+      </div>
+      <p class="hint">上傳的影片只存在你的瀏覽器裡（IndexedDB），不會上傳到任何伺服器；建議單支在數十 MB 內，太大的檔案可能讓瀏覽器變慢或占用大量空間。上傳後可在下方各段落按「📁 我的影片庫」套用。</p>
+      <p class="jobmsg" id="myClipMsg"></p>
+      <div class="thumbgrid" id="myClipsGrid"></div>
+    </details>
     <div id="pickList"></div>
   </div>
 </section>
@@ -304,7 +313,7 @@ body.has-marquee{padding-top:32px}
 
 </main>
 <footer style="max-width:980px;margin:0 auto;padding:0 20px 40px;color:var(--muted);font-size:12.5px;line-height:1.8">
-  <p>⚠ 語音採線上制式聲音，非真人聲音克隆。合成完全在瀏覽器內完成，輸出為 .webm 影片檔。</p>
+  <p>⚠ 語音採線上制式聲音，非真人聲音克隆。合成完全在瀏覽器內完成，輸出格式依瀏覽器支援自動選擇（優先 .mp4，不支援時退回 .webm）。</p>
   <p>影片素材來自
     <a href="https://www.pexels.com" target="_blank" style="color:var(--muted)">Pexels</a>（依 Pexels 授權條款免費使用）。
     <a href="/manual.html" target="_blank" style="color:var(--amber)">📖 操作手冊</a></p>
@@ -536,6 +545,11 @@ function tc(sec){
   return String(m).padStart(2,'0')+':'+ (s<10?'0':'') + s.toFixed(1);
 }
 function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function pickStateText(clip){
+  return clip.source==='upload'
+    ? `已選（我的影片：${esc(clip.name)}） · ${tc(clip.duration)}`
+    : `已選 · 素材 ${tc(clip.duration)}`;
+}
 
 // ---------- Pexels 金鑰 ----------
 function localKey(){ return (localStorage.getItem('avsWeb_pexelsKey')||'').trim(); }
@@ -645,7 +659,8 @@ function renderPicker(){
         <input type="text" value="${esc(seg.keyword)}" data-kw="${i}" style="width:100%;max-width:240px" aria-label="搜尋關鍵字">
         <button data-search="${i}">搜尋影片</button>
         <button data-inspire="${i}" title="從常用關鍵字挑選">💡 靈感</button>
-        <span class="tc" id="pickState${i}">${seg.clip?`已選 · 素材 ${tc(seg.clip.duration)}`:'未選片'}</span>
+        <button data-mylib="${i}" title="從我的影片庫選用自己上傳的影片">📁 我的影片庫</button>
+        <span class="tc" id="pickState${i}">${seg.clip?pickStateText(seg.clip):'未選片'}</span>
       </div>
       <div class="thumbgrid" id="grid${i}"></div>
       <div id="prev${i}"></div>`;
@@ -725,17 +740,196 @@ function pickClip(i,j){
   const seg = state.segments[i];
   const v = seg.candidates[j];
   if(!v.file){ alert('這部影片沒有可用的檔案'); return; }
-  seg.clip = { url: v.file.link, id: v.id, thumb: v.thumbnail, duration: v.duration, width: v.file.width, height: v.file.height };
-  $('pickState'+i).textContent = `已選 · 素材 ${tc(v.duration)}`;
-  $('prev'+i).innerHTML = `<video class="thumb" style="max-width:280px;aspect-ratio:16/9" crossorigin="anonymous" src="${v.file.link}" controls preload="metadata"></video>`;
-  renderGrid(i); refreshStatus(); save();
+  seg.clip = { source:'pexels', url: v.file.link, id: v.id, thumb: v.thumbnail, duration: v.duration, width: v.file.width, height: v.file.height };
+  $('pickState'+i).textContent = pickStateText(seg.clip);
+  renderGrid(i); showClipPreview(i); refreshStatus(); save();
+}
+async function showClipPreview(i){
+  const seg = state.segments[i];
+  if(!seg.clip){ $('prev'+i).innerHTML = ''; return; }
+  try{
+    const url = await resolveClipUrl(seg.clip);
+    const cross = seg.clip.source==='upload' ? '' : 'crossorigin="anonymous"';
+    $('prev'+i).innerHTML = `<video class="thumb" style="max-width:280px;aspect-ratio:16/9" ${cross} src="${url}" controls preload="metadata"></video>`;
+  }catch(e){
+    $('prev'+i).innerHTML = `<p class="hint" style="color:var(--rec)">${esc(e.message)}</p>`;
+  }
 }
 $('pickList').addEventListener('click', e=>{
   const s = e.target.closest('[data-search]'); if(s){ searchClips(+s.dataset.search); return; }
   const insp = e.target.closest('[data-inspire]'); if(insp){ openInspire(+insp.dataset.inspire); return; }
+  const mylib = e.target.closest('[data-mylib]'); if(mylib){ openMyLibPicker(+mylib.dataset.mylib); return; }
   const t = e.target.closest('[data-pick]');
   if(t){ const [i,j] = t.dataset.pick.split(':').map(Number); pickClip(i,j); }
 });
+
+// ---------- 📁 我的影片庫（IndexedDB 儲存使用者自行上傳的影片素材） ----------
+const CLIPDB_NAME = 'avsWebClips', CLIPDB_STORE = 'clips';
+function openClipDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(CLIPDB_NAME, 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore(CLIPDB_STORE, { keyPath:'id' }); };
+    req.onsuccess = ()=>resolve(req.result);
+    req.onerror = ()=>reject(req.error);
+  });
+}
+async function dbPut(rec){
+  const db = await openClipDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(CLIPDB_STORE,'readwrite');
+    tx.objectStore(CLIPDB_STORE).put(rec);
+    tx.oncomplete = res; tx.onerror = ()=>rej(tx.error);
+  });
+}
+async function dbGetAll(){
+  const db = await openClipDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(CLIPDB_STORE,'readonly');
+    const r = tx.objectStore(CLIPDB_STORE).getAll();
+    r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error);
+  });
+}
+async function dbGet(id){
+  const db = await openClipDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(CLIPDB_STORE,'readonly');
+    const r = tx.objectStore(CLIPDB_STORE).get(id);
+    r.onsuccess = ()=>res(r.result); r.onerror = ()=>rej(r.error);
+  });
+}
+async function dbDelete(id){
+  const db = await openClipDB();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction(CLIPDB_STORE,'readwrite');
+    tx.objectStore(CLIPDB_STORE).delete(id);
+    tx.oncomplete = res; tx.onerror = ()=>rej(tx.error);
+  });
+}
+// 解析出一支影片的「可播放網址」——Pexels 型是遠端連結直接回傳；上傳型的實際位元組存在
+// IndexedDB，每次要用時才建立新的 blob URL 並快取，避免頁面存活期間重複解碼同一支影片。
+const clipUrlCache = new Map(); // clip.id -> object URL（僅 upload 型）
+async function resolveClipUrl(clip){
+  if(clip.source === 'upload'){
+    if(clipUrlCache.has(clip.id)) return clipUrlCache.get(clip.id);
+    const rec = await dbGet(clip.id);
+    if(!rec) throw new Error('找不到這支已上傳的影片（可能已從「我的影片庫」被刪除），請重新選片');
+    const url = URL.createObjectURL(rec.blob);
+    clipUrlCache.set(clip.id, url);
+    return url;
+  }
+  return clip.url;
+}
+function readVideoMeta(file){
+  // 跟 measureAudioDuration() 同樣的道理：blob URL 的 duration 偶爾會回報 Infinity（瀏覽器已知
+  // 小 bug），要用「跳到極大時間點再跳回」強制觸發正確計算，才能安全 seek 去抓縮圖畫面。
+  return new Promise((resolve,reject)=>{
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata'; video.muted = true; video.playsInline = true; video.src = url;
+    video.addEventListener('error', ()=>{ URL.revokeObjectURL(url); reject(new Error('無法讀取此檔案（格式不支援或檔案損毀）')); }, {once:true});
+    video.addEventListener('loadedmetadata', async ()=>{
+      if(!isFinite(video.duration)){
+        await new Promise(res=>{
+          video.addEventListener('durationchange', function onDur(){
+            if(isFinite(video.duration)){ video.removeEventListener('durationchange', onDur); res(); }
+          });
+          video.currentTime = 1e10;
+        });
+      }
+      video.addEventListener('seeked', ()=>{
+        const w = video.videoWidth||320, h = video.videoHeight||180;
+        const c = document.createElement('canvas');
+        c.width = 160; c.height = Math.max(1, Math.round(160*h/w));
+        c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+        const thumb = c.toDataURL('image/jpeg', 0.7);
+        const duration = video.duration, width = video.videoWidth, height = video.videoHeight;
+        URL.revokeObjectURL(url);
+        resolve({ duration, width, height, thumb });
+      }, {once:true});
+      video.currentTime = Math.min(0.5, (video.duration||1)/2);
+    }, {once:true});
+  });
+}
+async function renderMyClipsLibrary(){
+  const clips = await dbGetAll();
+  clips.sort((a,b)=>b.addedAt-a.addedAt);
+  $('myClipsGrid').innerHTML = clips.length ? clips.map(c=>`
+    <div class="thumb" title="${esc(c.name)}">
+      <img src="${c.thumb}" alt="${esc(c.name)}">
+      <span class="dur">${Math.round(c.duration)}s</span>
+      <button data-delclip="${c.id}" title="刪除這支影片" style="position:absolute;top:4px;left:4px;padding:2px 6px;font-size:11px;line-height:1">🗑</button>
+    </div>`).join('') : '<p class="hint">尚未上傳任何影片。</p>';
+  return clips;
+}
+$('myClipUpload').addEventListener('change', async e=>{
+  const files = Array.from(e.target.files||[]);
+  if(!files.length) return;
+  let done = 0;
+  for(const file of files){
+    $('myClipMsg').textContent = `上傳中 ${done}/${files.length}：${file.name}`;
+    try{
+      const meta = await readVideoMeta(file);
+      await dbPut({ id: crypto.randomUUID(), name: file.name, blob: file, thumb: meta.thumb,
+                     duration: meta.duration, width: meta.width, height: meta.height, addedAt: Date.now() });
+    }catch(err){
+      $('myClipMsg').textContent = `「${file.name}」上傳失敗：${err.message}`;
+    }
+    done++;
+  }
+  $('myClipMsg').textContent = `已上傳 ${files.length} 支影片，可在各段落按「📁 我的影片庫」套用。`;
+  e.target.value = '';
+  renderMyClipsLibrary();
+});
+$('myClipsGrid').addEventListener('click', async e=>{
+  const del = e.target.closest('[data-delclip]');
+  if(!del) return;
+  if(!confirm('刪除這支影片？已套用到段落的地方會在下次合成時提示需要重新選片。')) return;
+  const url = clipUrlCache.get(del.dataset.delclip);
+  if(url){ URL.revokeObjectURL(url); clipUrlCache.delete(del.dataset.delclip); }
+  await dbDelete(del.dataset.delclip);
+  renderMyClipsLibrary();
+});
+
+let myLibTarget = null, myLibClipsCache = [];
+async function openMyLibPicker(i){
+  myLibTarget = i;
+  let m = $('myLibModal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'myLibModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(m);
+    m.addEventListener('click', e=>{
+      if(e.target===m || e.target.id==='myLibClose'){ m.style.display='none'; return; }
+      const t = e.target.closest('[data-myclip]');
+      if(t && myLibTarget!=null){
+        const clip = myLibClipsCache.find(c=>c.id===t.dataset.myclip);
+        if(clip) pickUploadClip(myLibTarget, clip);
+        m.style.display='none';
+      }
+    });
+  }
+  myLibClipsCache = await dbGetAll();
+  myLibClipsCache.sort((a,b)=>b.addedAt-a.addedAt);
+  m.innerHTML = `<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:720px;max-height:80vh;overflow:auto;padding:20px" role="dialog" aria-label="我的影片庫">
+    <div style="display:flex;align-items:center;margin-bottom:6px"><b>📁 我的影片庫</b>
+      <span class="hint" style="margin:0 auto 0 12px">點縮圖套用到這一段</span>
+      <button id="myLibClose">關閉</button></div>
+    ${myLibClipsCache.length ? `<div class="thumbgrid">${myLibClipsCache.map(c=>`
+      <div class="thumb" data-myclip="${c.id}" title="${esc(c.name)}">
+        <img src="${c.thumb}" alt="${esc(c.name)}">
+        <span class="dur">${Math.round(c.duration)}s</span>
+      </div>`).join('')}</div>` : '<p class="hint">尚未上傳任何影片，請先在上方「📁 我的影片庫」上傳。</p>'}
+  </div>`;
+  m.style.display = 'flex';
+}
+function pickUploadClip(i, clipRec){
+  const seg = state.segments[i];
+  seg.clip = { source:'upload', id: clipRec.id, name: clipRec.name, thumb: clipRec.thumb,
+               duration: clipRec.duration, width: clipRec.width, height: clipRec.height };
+  $('pickState'+i).textContent = pickStateText(seg.clip);
+  renderGrid(i); showClipPreview(i); refreshStatus(); save();
+}
 
 // ---------- 💡 常用關鍵字挑選器 ----------
 const KEYWORD_LIBRARY = [
@@ -931,17 +1125,35 @@ function drawWatermark(ctx, W, H, portrait){
   ctx.shadowColor = 'transparent';
 }
 function pickMime(){
-  const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  // 優先嘗試讓 MediaRecorder 直接輸出 mp4（較新版 Chrome/Edge 用平台內建 H.264 編碼器支援），
+  // 不支援時才退回 webm——這裡完全靠 isTypeSupported 特性偵測，不硬編瀏覽器版本判斷。
+  const candidates = [
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',
+    'video/mp4;codecs=h264,aac',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
   for(const m of candidates) if(window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
   return null;
 }
+function isMp4Mime(mime){ return mime.indexOf('video/mp4') === 0; }
+function initComposeHint(){
+  const mime = pickMime();
+  if(!mime){ $('composeHint').textContent = '⚠ 這個瀏覽器不支援即時錄製功能，請改用 Chrome 或 Edge。'; return; }
+  $('composeHint').textContent = isMp4Mime(mime)
+    ? '此瀏覽器支援直接輸出 .mp4。'
+    : '此瀏覽器僅支援直接輸出 .webm（可用線上工具或 ffmpeg 轉成 .mp4）；較新版本的 Chrome / Edge 通常能直接輸出 .mp4。';
+}
 async function playSegment(seg, ctx, W, H, audioCtx, recDest, withSubs, portrait, onTick){
+  const clipUrl = await resolveClipUrl(seg.clip);
   const video = document.createElement('video');
-  video.crossOrigin = 'anonymous';
+  if(seg.clip.source !== 'upload') video.crossOrigin = 'anonymous'; // 本機 blob 不需要、也不該加 crossOrigin
   video.muted = true;
   video.loop = true;
   video.playsInline = true;
-  video.src = seg.clip.url;
+  video.src = clipUrl;
   await new Promise((resolve, reject)=>{
     video.addEventListener('loadeddata', resolve, {once:true});
     video.addEventListener('error', ()=>reject(new Error('影片素材載入失敗')), {once:true});
@@ -1003,6 +1215,9 @@ async function runCompose(){
   const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 });
   recorder.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
 
+  const isMp4 = isMp4Mime(mime);
+  const ext = isMp4 ? 'mp4' : 'webm';
+
   $('btnCompose').disabled = true;
   $('cpBarWrap').style.display = 'block';
   $('composeHint').textContent = '正在即時錄製，請保持此分頁在前景，不要切換到其他分頁或視窗。';
@@ -1027,14 +1242,33 @@ async function runCompose(){
     await new Promise(resolve => { recorder.onstop = resolve; });
     clearInterval(progTimer);
     $('cpBar').style.width = '100%';
-    const blob = new Blob(chunks, { type: mime.split(';')[0] });
+    const outType = mime.split(';')[0];
+    const blob = new Blob(chunks, { type: outType });
     const url = URL.createObjectURL(blob);
+    const filename = `ai_video_studio_output.${ext}`;
     setDot(4,'ok','完成 '+tc(total));
-    $('cpMsg').textContent = '合成完成。';
+    $('cpMsg').textContent = isMp4 ? '合成完成，已輸出 .mp4 影片。' : '合成完成，此瀏覽器僅支援 .webm 輸出。';
     $('finalWrap').innerHTML = `
       <video src="${url}" controls></video>
-      <div class="row"><a href="${url}" download="ai_video_studio_output.webm"><button class="primary">下載影片（.webm）</button></a>
-      <span class="tc">${tc(total)}</span></div>`;
+      <div class="row">
+        <a href="${url}" download="${filename}"><button class="primary">下載影片（.${ext}）</button></a>
+        <button id="btnShareVideo">📤 分享影片</button>
+        <span class="tc">${tc(total)}</span>
+      </div>
+      <p class="hint" id="shareMsg"></p>`;
+    $('btnShareVideo').addEventListener('click', async ()=>{
+      const file = new File([blob], filename, { type: outType });
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{
+          await navigator.share({ files:[file], title:'AI 影音工坊影片', text:'用 AI 影音工坊做的短影片' });
+          $('shareMsg').textContent = '已開啟分享。';
+        }catch(e){
+          if(e.name !== 'AbortError') $('shareMsg').textContent = '分享失敗：'+e.message;
+        }
+      }else{
+        $('shareMsg').textContent = '這個瀏覽器/裝置不支援直接分享影片檔，請先按左邊「下載影片」，再從檔案總管或相簿手動分享。';
+      }
+    });
   }catch(e){
     clearInterval(progTimer);
     setDot(4,'idle','失敗');
@@ -1042,6 +1276,7 @@ async function runCompose(){
     $('cpMsg').classList.add('err');
   }finally{
     $('btnCompose').disabled = false;
+    initComposeHint();
   }
 }
 $('btnCompose').addEventListener('click', runCompose);
@@ -1067,7 +1302,7 @@ $('btnReset').addEventListener('click', ()=>{
   location.reload();
 });
 
-load(); loadVoices(); checkStatus();
+load(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint();
 if(state.segments.length){
   $('parseInfo').textContent = `已載入上次的 ${state.segments.length} 段（配音需重新生成）。`;
   setDot(1,'ok',`${state.segments.length} 段`);

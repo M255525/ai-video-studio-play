@@ -64,9 +64,21 @@
 
 **踩坑**：Playwright `browser_take_screenshot` 的 `fullPage:true` 對 `position:fixed` 的跑馬燈會產生視覺假象（截圖拼接過程中固定元素在某個捲動位置被截進畫面中段，看起來像跟內容重疊），**改用 `fullPage:false`（單一 viewport）分段捲動截圖才是真實畫面**，不要被 fullPage 截圖的固定定位元素位置誤導成排版 bug。
 
+## 2026-08-06 新增四項功能：上傳影片／mp4 輸出／分享／手冊補完
+
+- **📁 我的影片庫（自行上傳影片素材）**：`index.html` 新增一個用 **IndexedDB**（DB 名 `avsWebClips`，store `clips`，keyPath `id`）存放使用者上傳影片 Blob 的持久化影片庫，跟原本 localStorage 存的腳本/選片狀態不同層級——**這是目前唯一在重新整理頁面後仍會保留的素材**（配音音檔、合成結果依然不保留，這點沒變）。上傳時用一支隱藏 `<video>` 元素 seek 到約 0.5 秒抓縮圖（`readVideoMeta()`），沿用既有 `measureAudioDuration()` 同一招「跳極大時間點再跳回」解 blob URL duration 偶爾回報 `Infinity` 的瀏覽器小 bug。每個段落在選片區多一顆「📁 我的影片庫」按鈕，開一個跟「💡 靈感」同款式的 modal 挑縮圖套用。
+  - **`clip` 物件多了 `source` 欄位**區分 `'pexels'`（原本 `url` 直接可播）跟 `'upload'`（存的是 IndexedDB 的 `id`，播放網址要用 `resolveClipUrl(clip)` 非同步解析、內部用 `clipUrlCache`（Map）快取 object URL 避免重複建立）。`playSegment()`、預覽（`showClipPreview()`）都已改走這個函式，**之後如果要再加新的素材來源（例如未來的另一種影片庫），一律要走 `resolveClipUrl()`，不要直接讀 `clip.url`**。
+  - 刪除影片庫項目會 revoke 對應的快取 object URL；若某段落引用的影片被刪除，`resolveClipUrl()` 會丟出明確錯誤訊息，`showClipPreview()`／`playSegment()` 都會照樣往外拋、由呼叫端的錯誤處理接住（合成時會顯示在 `cpMsg`）。
+- **合成輸出改偵測 mp4**：`pickMime()` 候選清單改成**先試 `video/mp4`（多個 codecs 字串變體），不支援才退回 webm**，純靠 `MediaRecorder.isTypeSupported()` 特性偵測，沒有寫死瀏覽器版本判斷。**已用 Playwright 實測目前環境的 Chrome 直接輸出真正可解碼的 H.264/AAC mp4**（`ffprobe`／`ffmpeg -f null -` 皆驗證通過，只有「非嚴格遞增 dts」的 muxer 警告——這是即時串流錄製的正常現象，不影響完整解碼）。下載檔名／按鈕文字／`cpMsg` 都依實際拿到的 mime 動態換成 `.mp4` 或 `.webm`；`initComposeHint()` 在頁面載入與每次合成結束後都會更新「04 合成」上方提示文字告知目前瀏覽器會輸出哪種格式。
+- **📤 分享影片**：合成完成後在下載按鈕旁加一顆「📤 分享影片」，用 **Web Share API Level 2**（`navigator.canShare({files:[file]})` 特性偵測）把合成結果包成 `File` 直接呼叫 `navigator.share()`；不支援的瀏覽器/裝置顯示提示文字改用下載。**已實測**：這個開發環境的 Chrome 支援檔案分享，呼叫成功不拋錯。
+- **manual.html 補完**：新增「📁 使用自己上傳的影片」整節、更新「💾 資料存在哪裡」區分 IndexedDB（持久）vs localStorage（腳本/選片持久）vs 配音/合成（不持久）三層、四個階段表格與快速開始步驟同步反映三項新功能、FAQ 新增分享/上傳找不到素材的問答、mp4/webm 那則 FAQ 改寫成「靠特性偵測自動選擇」而非「固定是 webm」。
+
+**測試方法**：本機 `python -m http.server` 起靜態站，Playwright（非 `mcp__claude-in-chrome`——這次分頁全程保持前景可互動，沒有踩到之前記過的「自動化分頁 `visibilityState` 為 `hidden` 導致 `<audio>` 卡住」那個坑）跑過完整流程：上傳一支從既有專案借來的真實測試短片（1.5 秒 mp4）進「我的影片庫」→ 確認 IndexedDB 存進 `duration`/`width`/`height`/縮圖/Blob → 兩個段落都套用該影片 → 用一段手刻的靜音 WAV blob 直接塞進 `state.segments[i].audio`（跳過需要外部帳號的 TTS worker，純測前端合成管線）→ 呼叫 `runCompose()` → 抓出成品 blob 轉 base64 存檔，`ffprobe`/`ffmpeg` 驗證是真正可解碼的 1920×1080 H.264/AAC mp4，並用 Read 工具肉眼確認畫面同時燒進了段落字幕與「AI Video Studio」浮水印 → 點擊分享按鈕確認 `navigator.share()` 正常觸發不拋錯。測試後已清空 IndexedDB 測試資料與 localStorage 狀態、關閉測試伺服器、刪除所有測試用暫存檔案。
+
 ## 待辦
 
 - manual.html 的「跟其他版本的差異」小節連結指向 `ai-video-studio-lite`，兩個 repo 之後可以互相連結。
+- worker.js／Cloudflare Worker 部署狀態本身未變動（這次四項新功能都在前端完成，沒有動配音代理），仍要留意上面「worker.js 部署狀態」一節提到的暫時帳號 60 分鐘限制。
 
 ## 指令
 
