@@ -58,6 +58,12 @@
 
 `worker.js` 原始碼整份用 `<script type="text/plain" id="workerSourceCode">` 內嵌在頁面裡（跟主程式邏輯的 `<script>` 完全分開，瀏覽器不會執行它，只當純文字讀取），供頁面上的「📋 複製程式碼」按鈕讀出塞進一個 `readonly textarea` 讓使用者複製貼到 Cloudflare 網頁編輯器。**踩坑**：這個 `text/plain` script 標籤一開始放在主程式 `<script>` 之後（檔案尾端），導致主程式初始化時 `document.getElementById('workerSourceCode')` 還沒解析到、抓到 `null` 而整段初始化炸掉——**HTML 是邊解析邊建 DOM，出現在後面的元素在前面的 `<script>` 執行時還不存在**，修法是把這個 `text/plain` 區塊搬到主程式 `<script>` 標籤之前（`</footer>` 之後）。用 Python 腳本做這個搬移（不是手動剪貼），順便做了「搬移後內容跟 `worker.js` 檔案逐字元比對相同」的自動驗證，避免手動搬移打字出錯。
 
+## 手機版型（2026-08-06 新增）
+
+原本幾個輸入框用固定 `width:320px`／`width:360px`／`width:240px`（`#pexelsKey`、`#ttsWorkerUrl`、每段的關鍵字輸入框），窄螢幕下會撐爆版面。改成 `width:100%;max-width:XXXpx`（有容器就填滿容器、沒有就不超過原本設計寬度）。用 Playwright（`mcp__claude-in-chrome` 這次連不上，改用 Playwright 的 `browser_resize`＋`browser_evaluate`＋`browser_take_screenshot`）在 375px／320px 兩個寬度測過四個階段全部展開＋所有 `<details>` 面板都打開＋常用關鍵字彈窗，`document.documentElement.scrollWidth` 都沒超過 `window.innerWidth`（無橫向溢出），並用截圖肉眼確認排版正常（header 換行、按鈕堆疊、canvas/video 依 `max-width` 縮小皆正常）。**`manual.html` 本來就沒有固定寬度元素，不需要改。**
+
+**踩坑**：Playwright `browser_take_screenshot` 的 `fullPage:true` 對 `position:fixed` 的跑馬燈會產生視覺假象（截圖拼接過程中固定元素在某個捲動位置被截進畫面中段，看起來像跟內容重疊），**改用 `fullPage:false`（單一 viewport）分段捲動截圖才是真實畫面**，不要被 fullPage 截圖的固定定位元素位置誤導成排版 bug。
+
 ## 待辦
 
 - manual.html 的「跟其他版本的差異」小節連結指向 `ai-video-studio-lite`，兩個 repo 之後可以互相連結。
