@@ -65,8 +65,15 @@ a{color:var(--accent)}
 <h2>💾 資料存在哪裡</h2>
 <p>腳本、關鍵字、已選的影片連結存在瀏覽器 localStorage，關掉分頁不會消失；<b>配音音檔跟合成結果不會被保留</b>（重新整理頁面後配音要重新生成一次）——這是純瀏覽器架構的取捨，換來的是完全不需要任何後端儲存空間。</p>
 
-<h2>🔧 給進階使用者：自己部署一份語音服務代理</h2>
-<p>如果作者提供的預設代理網址失效或額度用盡，你可以免費申請自己的 <a href="https://dash.cloudflare.com/sign-up" target="_blank">Cloudflare</a> 帳號，把本專案的 <code>worker.js</code> 部署成自己的 Worker（<code>npx wrangler deploy</code>），取得一個 <code>https://xxx.workers.dev</code> 網址，貼到「03 配音」的「🔧 語音服務代理網址」欄位即可，設定只存在你的瀏覽器。</p>
+<h2>🚀 申請你自己專屬的配音服務（免費，約 5 分鐘）</h2>
+<p>作者提供的預設代理是大家共用的，流量大時可能會變慢。「03 配音」下方展開「🚀 想擁有自己專屬的配音服務？」就有完整步驟與一鍵複製的程式碼，<b>不需要安裝任何軟體或用終端機</b>：</p>
+<ol>
+  <li>免費申請 <a href="https://dash.cloudflare.com/sign-up" target="_blank">Cloudflare</a> 帳號（不需信用卡）</li>
+  <li>「Workers & Pages」→「Create」→「Create Worker」，取名後「Deploy」</li>
+  <li>進到該 Worker「Edit code」，貼上頁面裡按一下就能複製的程式碼，再「Deploy」</li>
+  <li>把拿到的 <code>https://xxx.workers.dev</code> 網址貼回「🔧 語音服務代理網址」欄位</li>
+</ol>
+<p>如果你比較習慣用終端機，也可以用 <code>npx wrangler deploy</code>（需先 <code>npx wrangler login</code>）部署本專案 repo 裡的 <code>worker.js</code>，效果完全相同。</p>
 
 <h2>❓ 常見問題</h2>
 <p><b>配音失敗，顯示「尚未設定語音服務代理網址」？</b><br>展開「03 配音」下方的「🔧 語音服務代理網址」，確認網址存在且正確；若持續失敗可能是該代理服務暫時額度用盡或離線。</p>
