@@ -42,10 +42,13 @@
 
 測試後已清空本機測試用的 localStorage 設定、關閉測試伺服器與瀏覽器分頁。
 
+## Git / GitHub 狀態（已完成，2026-08-06）
+
+獨立巢狀 repo（`.git` 只存在這一層，跟外層 `ai-video-studio/` 那個本機用途 repo 無關，模式比照 [[aivideo-studio-online-project]]）。已建立公開 GitHub repo **`M255525/ai-video-studio-play`** 並 push，**已啟用 GitHub Pages**（`master` 分支根目錄），線上網址：<https://m255525.github.io/ai-video-studio-play/>。已用真實 Chrome 分頁開這個線上網址驗證頁面正確載入、聲音清單正常、fail-closed 提示文字正確顯示。
+
 ## 待辦
 
-- **`worker.js` 尚未部署到正式 Cloudflare 帳號**，`index.html` 的 `DEFAULT_TTS_WORKER_URL` 常數目前是空字串（fail-closed，比照工作區 `LICENSE_CHECK_URL` 慣例）。使用者需要自己申請免費 Cloudflare 帳號並部署（帳號申請/OAuth 授權這類動作不能由 Claude 代勞），部署後把網址回填到這個常數，或使用者自行在頁面「🔧 語音服務代理網址」欄位填入亦可（設定存 localStorage，不需要改原始碼）。
-- **尚未 `git init`／推上 GitHub**。比照 [[aivideo-studio-online-project]] 的模式：在這個資料夾內獨立 `git init`（巢狀 repo，跟外層 `ai-video-studio/` 那個本機用途的 repo 無關），排除規則不需要 `clips/`／`audio/`／`output/`（這個架構完全沒有這些資料夾，全部在記憶體/blob URL），但仍需排除 `node_modules/`（若使用者本機測試 `wrangler` 時產生）與 `.wrangler/`。
+- **`worker.js` 尚未部署到正式 Cloudflare 帳號**，`index.html` 的 `DEFAULT_TTS_WORKER_URL` 常數目前是空字串（fail-closed，比照工作區 `LICENSE_CHECK_URL` 慣例），線上網址目前配音功能無法使用（其餘功能不受影響）。使用者選擇「先 push 前端、晚點再處理 Cloudflare」，需要使用者自己申請免費 Cloudflare 帳號並部署（帳號申請/OAuth 授權這類動作不能由 Claude 代勞），部署後把網址回填到這個常數並 commit，或使用者自行在頁面「🔧 語音服務代理網址」欄位填入亦可（設定存 localStorage，不需要改原始碼、不需要重新部署）。
 - manual.html 的「跟其他版本的差異」小節連結指向 `ai-video-studio-lite`，兩個 repo 之後可以互相連結。
 
 ## 指令
