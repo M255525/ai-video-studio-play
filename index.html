@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 影音工坊（純瀏覽器版）</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<style>
+:root{
+  --bg:#16181D; --panel:#1F232B; --panel2:#262B34; --line:#30363F;
+  --text:#E8E6E1; --muted:#8B919C;
+  --amber:#E8A33D; --amber-dim:#8a6526;
+  --rec:#E4574C; --ok:#6FBF8B;
+  --mono:"Cascadia Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;
+  font-size:15px;line-height:1.6;min-height:100vh;
+}
+header{
+  display:flex;align-items:baseline;gap:14px;
+  padding:20px 28px 14px;border-bottom:1px solid var(--line);
+}
+header h1{font-size:20px;font-weight:700;letter-spacing:.05em}
+header .sub{color:var(--muted);font-size:13px}
+header .right{margin-left:auto;display:flex;gap:8px}
+main{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+
+.stage{
+  border:1px solid var(--line);border-radius:10px;background:var(--panel);
+  margin-bottom:14px;overflow:hidden;
+}
+.stage-head{
+  display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;
+  user-select:none;
+}
+.stage-head:hover{background:var(--panel2)}
+.stage-num{
+  font-family:var(--mono);font-size:13px;color:var(--muted);
+  border:1px solid var(--line);border-radius:6px;padding:2px 8px;flex:none;
+}
+.stage.active .stage-num{color:var(--amber);border-color:var(--amber-dim)}
+.stage-title{font-weight:700;font-size:16px}
+.stage-status{margin-left:auto;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.stage-status .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.idle{background:var(--line)} .dot.ok{background:var(--ok)}
+.dot.run{background:var(--rec);animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion: reduce){.dot.run{animation:none}}
+.stage-body{display:none;padding:6px 18px 20px;border-top:1px solid var(--line)}
+.stage.active .stage-body{display:block}
+
+textarea,input[type=text],input[type=password],input[type=number],select{
+  width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);
+  border-radius:8px;padding:9px 12px;font:inherit;
+}
+textarea{min-height:150px;resize:vertical;font-size:14px;line-height:1.8}
+textarea:focus,input:focus,select:focus{outline:2px solid var(--amber-dim);outline-offset:0}
+button{
+  font:inherit;border:none;border-radius:8px;padding:9px 18px;cursor:pointer;
+  background:var(--panel2);color:var(--text);border:1px solid var(--line);
+}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--amber);border-color:var(--amber);color:#16181D;font-weight:700}
+button.primary:hover{filter:brightness(1.08)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,.stage-head:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+label.opt{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--text)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
+.hint{color:var(--muted);font-size:13px;margin:8px 0}
+.tc{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.tc.warm{color:var(--amber)}
+
+.seg{
+  border:1px solid var(--line);border-radius:8px;margin:10px 0;background:var(--bg);
+  padding:12px 14px;
+}
+.seg-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.seg-idx{font-family:var(--mono);font-size:12px;color:var(--amber);flex:none}
+.seg-text{flex:1}
+.seg .meta{display:flex;gap:14px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.thumbgrid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:8px;margin-top:10px;
+}
+.thumb{
+  position:relative;border:2px solid transparent;border-radius:6px;overflow:hidden;
+  cursor:pointer;background:#000;aspect-ratio:16/9;
+}
+.thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.thumb:hover{border-color:var(--muted)}
+.thumb.selected{border-color:var(--amber)}
+.thumb .dur{
+  position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.75);
+  font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;color:#fff;
+}
+.thumb .picked{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(232,163,61,.25);color:#fff;font-weight:700;font-size:13px;
+}
+audio{width:100%;margin-top:6px}
+
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:10px 0 4px}
+.progress>div{height:100%;background:var(--amber);width:0;transition:width .3s}
+.jobmsg{font-size:13px;color:var(--muted)}
+.jobmsg.err{color:var(--rec)}
+.banner{
+  border:1px solid var(--amber-dim);background:rgba(232,163,61,.08);
+  border-radius:8px;padding:10px 14px;font-size:13.5px;margin:10px 0;
+}
+.banner.err{border-color:var(--rec);background:rgba(228,87,76,.08)}
+#composeCanvasWrap{margin-top:10px}
+#composeCanvas{width:100%;max-width:480px;border-radius:8px;background:#000;display:block}
+.videowrap video{width:100%;max-width:480px;border-radius:10px;background:#000;margin-top:10px}
+@media (max-width:640px){
+  header{padding:14px 16px 10px;flex-wrap:wrap}
+  main{padding:16px 12px 60px}
+  .stage-head{padding:12px 12px}
+  .stage-body{padding:4px 12px 16px}
+}
+
+#marqueeBar{position:fixed;top:0;left:0;right:0;height:32px;background:var(--panel);border-bottom:1px solid var(--line);z-index:2100;overflow:hidden;display:none;align-items:center}
+#marqueeBar.show{display:flex}
+#marqueeTrack{display:inline-block;white-space:nowrap;padding-left:100%;font-size:13px;font-weight:600;color:var(--amber);animation:marquee-scroll 30s linear infinite}
+body.has-marquee{padding-top:32px}
+@keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+</style>
+</head>
+<body>
+
+<div id="marqueeBar"><div id="marqueeTrack"></div></div>
+<script>
+(function () {
+  'use strict';
+  var MARQUEE_CHECK_URL = "https://script.google.com/macros/s/AKfycbwKX0DNNbY8y4nf90BFTHtxgfqJcHHcZasRrgycl4QAe52_hkjMWSkYk4xOsqU-JPCROw/exec";
+  var STORAGE_KEY = 'avsWebMarquee';
+  var REFRESH_MS = 20 * 60 * 1000;
+  var bar = document.getElementById('marqueeBar');
+  var track = document.getElementById('marqueeTrack');
+  function loadCache() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; } }
+  function saveCache(items) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch (e) {} }
+  function render(items) {
+    if (!items || !items.length) return;
+    var joined = items.join('　★　');
+    track.textContent = joined + '　★　' + joined;
+    bar.classList.add('show');
+    document.body.classList.add('has-marquee');
+    var width = track.scrollWidth / 2;
+    track.style.animationDuration = Math.max(width / 80, 10) + 's';
+  }
+  function fetchMarquee() {
+    fetch(MARQUEE_CHECK_URL, { method: 'POST', body: JSON.stringify({ serial: '' }) })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && Array.isArray(data.marquee) && data.marquee.length) { saveCache(data.marquee); render(data.marquee); }
+      }).catch(function () {});
+  }
+  render(loadCache());
+  fetchMarquee();
+  setInterval(fetchMarquee, REFRESH_MS);
+})();
+</script>
+<header>
+  <h1>AI 影音工坊</h1>
+  <span class="sub">純瀏覽器版 · 打開網頁即可用，無需下載安裝</span>
+  <div class="right">
+    <a href="/manual.html" target="_blank"><button title="開啟操作手冊">📖 操作手冊</button></a>
+    <button id="btnReset" title="清空目前專案">新專案</button>
+  </div>
+</header>
+<main>
+
+<div id="sysBanner"></div>
+<div class="banner">這個版本<b>完全在你的瀏覽器裡運算</b>，沒有伺服器上傳你的內容。合成時是「即時錄製」（跟影片長度差不多久），過程中請讓這個分頁保持在前景，切到背景分頁會讓錄製卡頓或畫面全黑。建議使用 <b>Chrome 或 Edge</b>。</div>
+
+<!-- 1 腳本 -->
+<section class="stage active" id="stage1">
+  <div class="stage-head" tabindex="0">
+    <span class="stage-num">01</span><span class="stage-title">腳本</span>
+    <span class="stage-status"><span class="dot idle" id="dot1"></span><span id="st1">尚未建立</span></span>
+  </div>
+  <div class="stage-body">
+    <p class="hint">一行一段。每行格式：<b>字幕文字 | 影片搜尋關鍵字</b>（關鍵字建議用英文，搜尋結果較準；省略則直接用字幕搜尋）。每段畫面長度由該段配音長度自動決定。</p>
+    <div class="row" style="margin-top:4px">
+      <span class="hint" style="margin:0">試試範例：</span>
+      <button data-example="0">📚 課程招生</button>
+      <button data-example="1">☕ 咖啡店宣傳</button>
+      <button data-example="2">🌅 晨間活力（直式）</button>
+    </div>
+    <textarea id="script" placeholder="歡迎來到 AI 課程的世界 | technology classroom
+這門課將帶你從零開始學會生成式 AI | artificial intelligence
+現在就加入我們 | happy students"></textarea>
+    <div class="row">
+      <label class="opt">聲音
+        <select id="voice" style="width:auto"></select>
+      </label>
+      <label class="opt">語速
+        <select id="rate" style="width:auto">
+          <option value="-15%">慢</option>
+          <option value="+0%" selected>正常</option>
+          <option value="+15%">快</option>
+        </select>
+      </label>
+      <button class="primary" id="btnParse">建立段落</button>
+    </div>
+    <p class="hint" id="parseInfo"></p>
+  </div>
+</section>
+
+<!-- 2 選片 -->
+<section class="stage" id="stage2">
+  <div class="stage-head" tabindex="0">
+    <span class="stage-num">02</span><span class="stage-title">選片</span>
+    <span class="stage-status"><span class="dot idle" id="dot2"></span><span id="st2">等待腳本</span></span>
+  </div>
+  <div class="stage-body">
+    <div class="row">
+      <label class="opt">畫面方向
+        <select id="orientation" style="width:auto">
+          <option value="landscape">橫式 16:9（YouTube）</option>
+          <option value="portrait">直式 9:16（Shorts / Reels）</option>
+        </select>
+      </label>
+    </div>
+    <details id="keyPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
+      <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels API 金鑰</summary>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="pexelsKey" style="width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰">
+        <button id="btnSaveKey">儲存</button>
+      </div>
+      <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
+    </details>
+    <div id="pickList"></div>
+  </div>
+</section>
+
+<!-- 3 配音 -->
+<section class="stage" id="stage3">
+  <div class="stage-head" tabindex="0">
+    <span class="stage-num">03</span><span class="stage-title">配音</span>
+    <span class="stage-status"><span class="dot idle" id="dot3"></span><span id="st3">等待腳本</span></span>
+  </div>
+  <div class="stage-body">
+    <div class="banner" id="ttsUrlBanner"></div>
+    <details id="ttsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
+      <summary style="cursor:pointer;color:var(--muted)">🔧 語音服務代理網址</summary>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="ttsWorkerUrl" style="width:360px" placeholder="https://xxx.workers.dev/">
+        <button id="btnSaveTtsUrl">儲存</button>
+      </div>
+      <p class="hint">瀏覽器沒辦法直接呼叫線上配音服務（會被安全限制擋掉），需要一個極輕量的代理網址幫忙轉發。這個網址只存在你的瀏覽器。</p>
+    </details>
+    <div class="row">
+      <button class="primary" id="btnTTS">生成全部配音</button>
+      <span class="tc" id="ttsEst"></span>
+    </div>
+    <div class="progress" id="ttsBarWrap" style="display:none"><div id="ttsBar"></div></div>
+    <p class="jobmsg" id="ttsMsg"></p>
+    <div id="audioList"></div>
+  </div>
+</section>
+
+<!-- 4 合成 -->
+<section class="stage" id="stage4">
+  <div class="stage-head" tabindex="0">
+    <span class="stage-num">04</span><span class="stage-title">合成</span>
+    <span class="stage-status"><span class="dot idle" id="dot4"></span><span id="st4">等待素材</span></span>
+  </div>
+  <div class="stage-body">
+    <div class="row">
+      <label class="opt"><input type="checkbox" id="subtitles" checked> 燒錄字幕</label>
+      <button class="primary" id="btnCompose">合成影片</button>
+      <span class="tc" id="totalDur"></span>
+    </div>
+    <p class="hint" id="composeHint"></p>
+    <div class="progress" id="cpBarWrap" style="display:none"><div id="cpBar"></div></div>
+    <p class="jobmsg" id="cpMsg"></p>
+    <div id="composeCanvasWrap" style="display:none">
+      <canvas id="composeCanvas" width="1920" height="1080"></canvas>
+    </div>
+    <div class="videowrap" id="finalWrap"></div>
+  </div>
+</section>
+
+</main>
+<footer style="max-width:980px;margin:0 auto;padding:0 20px 40px;color:var(--muted);font-size:12.5px;line-height:1.8">
+  <p>⚠ 語音採線上制式聲音，非真人聲音克隆。合成完全在瀏覽器內完成，輸出為 .webm 影片檔。</p>
+  <p>影片素材來自
+    <a href="https://www.pexels.com" target="_blank" style="color:var(--muted)">Pexels</a>（依 Pexels 授權條款免費使用）。
+    <a href="/manual.html" target="_blank" style="color:var(--amber)">📖 操作手冊</a></p>
+</footer>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+const VOICES = {
+  '男聲・沉穩（台灣）': 'zh-TW-YunJheNeural',
+  '女聲・親切（台灣）': 'zh-TW-HsiaoChenNeural',
+  '女聲・活潑（台灣）': 'zh-TW-HsiaoYuNeural',
+  '男聲・穩重（中國腔）': 'zh-CN-YunxiNeural',
+  '女聲・溫暖（中國腔）': 'zh-CN-XiaoxiaoNeural',
+  '女聲・俏皮（中國腔）': 'zh-CN-XiaoyiNeural',
+};
+const DEFAULT_TTS_WORKER_URL = ''; // 部署後回填；使用者也可在「03 配音」的進階設定自行覆蓋
+
+const state = {
+  segments: [],   // {text, keyword, clip:{url,id,thumb,duration,width,height}, candidates:[], audio:{blobUrl,buffer,duration}}
+  voice: null,
+};
+
+// ---------- 存取（AudioBuffer/Blob 無法存進 localStorage，重新整理後配音要重做） ----------
+function save(){ localStorage.setItem('avsWeb_state', JSON.stringify({
+  script: $('script').value,
+  segments: state.segments.map(s => ({ text: s.text, keyword: s.keyword, clip: s.clip, candidates: s.candidates })),
+  voice: state.voice, rate: $('rate').value,
+  orientation: $('orientation').value, subtitles: $('subtitles').checked,
+})); }
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem('avsWeb_state')||'null');
+    if(!s) return;
+    $('script').value = s.script||'';
+    state.segments = (s.segments||[]).map(seg => ({ ...seg, audio: null }));
+    state.voice = s.voice||null;
+    if(s.rate) $('rate').value = s.rate;
+    $('orientation').value = s.orientation||'landscape';
+    $('subtitles').checked = s.subtitles!==false;
+  }catch(e){}
+}
+
+// ---------- 流程卡開合 ----------
+document.querySelectorAll('.stage-head').forEach(h=>{
+  const toggle = ()=>h.parentElement.classList.toggle('active');
+  h.addEventListener('click', toggle);
+  h.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();} });
+});
+function openStage(n){
+  document.querySelectorAll('.stage').forEach((s,i)=>s.classList.toggle('active', i===n-1));
+  document.getElementById('stage'+n).scrollIntoView({behavior:'smooth',block:'start'});
+}
+function setDot(n, cls, txt){
+  const d = $('dot'+n); d.className = 'dot '+cls;
+  $('st'+n).textContent = txt;
+}
+function tc(sec){
+  if(sec==null) return '--:--';
+  const m = Math.floor(sec/60), s = sec-m*60;
+  return String(m).padStart(2,'0')+':'+ (s<10?'0':'') + s.toFixed(1);
+}
+function esc(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------- Pexels 金鑰 ----------
+function localKey(){ return (localStorage.getItem('avsWeb_pexelsKey')||'').trim(); }
+$('pexelsKey').value = localKey();
+$('btnSaveKey').addEventListener('click', ()=>{
+  localStorage.setItem('avsWeb_pexelsKey', $('pexelsKey').value.trim());
+  checkStatus();
+  alert('已儲存（只存在本機瀏覽器）。');
+});
+
+// ---------- TTS 代理網址 ----------
+function ttsWorkerUrl(){ return (localStorage.getItem('avsWeb_ttsWorkerUrl')||DEFAULT_TTS_WORKER_URL).trim(); }
+$('ttsWorkerUrl').value = ttsWorkerUrl();
+$('btnSaveTtsUrl').addEventListener('click', ()=>{
+  localStorage.setItem('avsWeb_ttsWorkerUrl', $('ttsWorkerUrl').value.trim());
+  renderTtsUrlBanner();
+  alert('已儲存（只存在本機瀏覽器）。');
+});
+function renderTtsUrlBanner(){
+  const url = ttsWorkerUrl();
+  $('ttsUrlBanner').innerHTML = url
+    ? `語音服務代理：<code>${esc(url)}</code>`
+    : '⚠ 尚未設定語音服務代理網址，配音會失敗。請展開下方「🔧 語音服務代理網址」設定，或聯繫作者取得預設網址。';
+}
+renderTtsUrlBanner();
+
+// ---------- 系統狀態 ----------
+function checkStatus(){
+  let html = '';
+  if(!localKey()){
+    html += '<div class="banner">尚未設定 <b>Pexels API 金鑰</b>（搜尋影片需要）。到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請後，填入「02 選片」的 🔑 金鑰欄位。</div>';
+    $('keyPanel').open = true;
+  }
+  if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){
+    html += '<div class="banner err">這個瀏覽器不支援即時錄製所需的功能（MediaRecorder / captureStream），請改用 Chrome 或 Edge。</div>';
+  }
+  $('sysBanner').innerHTML = html;
+}
+checkStatus();
+
+// ---------- 聲音清單 ----------
+function loadVoices(){
+  const names = Object.keys(VOICES);
+  if(!state.voice || !names.includes(state.voice)) state.voice = names[0];
+  $('voice').innerHTML = names.map(v=>`<option${v===state.voice?' selected':''}>${v}</option>`).join('');
+}
+$('voice').addEventListener('change', e=>{ state.voice = e.target.value; save(); });
+$('rate').addEventListener('change', save);
+
+// ---------- 內建範例 ----------
+const EXAMPLES = [
+  { name:'課程招生', orientation:'landscape', script:
+`想讓 AI 成為你的超能力嗎 | futuristic technology
+我們的課程從零開始帶你上手 | classroom learning computer
+現在就報名加入我們 | celebration success team` },
+  { name:'咖啡店宣傳', orientation:'landscape', script:
+`每一杯咖啡都是一場旅行 | barista pouring coffee
+嚴選豆子每日新鮮烘焙 | coffee beans roasting
+歡迎光臨轉角的香氣 | cozy coffee shop` },
+  { name:'晨間活力', orientation:'portrait', script:
+`美好的一天從清晨開始 | sunrise morning sky
+動起來讓身體充滿能量 | morning jogging exercise
+今天也要元氣滿滿 | happy stretching sunshine` },
+];
+document.querySelectorAll('[data-example]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const ex = EXAMPLES[+btn.dataset.example];
+    if($('script').value.trim() && !confirm(`載入範例「${ex.name}」將覆蓋目前腳本，繼續？`)) return;
+    $('script').value = ex.script;
+    $('orientation').value = ex.orientation;
+    $('parseInfo').textContent = `已載入範例「${ex.name}」${ex.orientation==='portrait'?'（已切為直式 9:16）':''}，按「建立段落」開始。`;
+    save();
+  });
+});
+
+// ---------- 1 腳本 ----------
+function parseScript(){
+  const lines = $('script').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){ alert('請先輸入腳本'); return false; }
+  const olds = state.segments;
+  state.segments = lines.map((l,i)=>{
+    const [text, kw] = l.split('|').map(x=>x.trim());
+    const old = olds[i];
+    const keep = old && old.text===text;
+    return { text, keyword: kw||text,
+             clip: keep?old.clip:null, candidates: keep?(old.candidates||[]):[],
+             audio: keep?old.audio:null };
+  });
+  $('parseInfo').textContent = `已建立 ${state.segments.length} 段。`;
+  setDot(1,'ok',`${state.segments.length} 段`);
+  renderPicker(); refreshStatus(); save();
+  return true;
+}
+$('btnParse').addEventListener('click', ()=>{ if(parseScript()) openStage(2); });
+
+// ---------- 2 選片（直接呼叫 Pexels，瀏覽器端完成） ----------
+function renderPicker(){
+  const box = $('pickList');
+  box.innerHTML = '';
+  state.segments.forEach((seg,i)=>{
+    const div = document.createElement('div');
+    div.className = 'seg';
+    div.innerHTML = `
+      <div class="seg-top"><span class="seg-idx">S${i+1}</span>
+        <span class="seg-text">${esc(seg.text)}</span></div>
+      <div class="meta">
+        <input type="text" value="${esc(seg.keyword)}" data-kw="${i}" style="width:240px" aria-label="搜尋關鍵字">
+        <button data-search="${i}">搜尋影片</button>
+        <button data-inspire="${i}" title="從常用關鍵字挑選">💡 靈感</button>
+        <span class="tc" id="pickState${i}">${seg.clip?`已選 · 素材 ${tc(seg.clip.duration)}`:'未選片'}</span>
+      </div>
+      <div class="thumbgrid" id="grid${i}"></div>
+      <div id="prev${i}"></div>`;
+    box.appendChild(div);
+    if(seg.candidates && seg.candidates.length) renderGrid(i);
+  });
+  refreshTotal();
+}
+function renderGrid(i){
+  const seg = state.segments[i];
+  const g = $('grid'+i);
+  g.innerHTML = seg.candidates.map((v,j)=>`
+    <div class="thumb${seg.clip && seg.clip.id===v.id?' selected':''}" data-pick="${i}:${j}" title="作者：${esc(v.author)}">
+      <img src="${v.thumbnail}" alt="影片候選 ${j+1}" loading="lazy">
+      <span class="dur">${v.duration}s</span>
+      ${seg.clip && seg.clip.id===v.id?'<span class="picked">✓ 已選用</span>':''}
+    </div>`).join('');
+}
+function simplifyVideo(v, orientation){
+  const files = (v.video_files||[]).filter(f=>f.link);
+  const wantPortrait = orientation === 'portrait';
+  function score(f){
+    const w = f.width||0, h = f.height||0;
+    const isPortrait = h > w;
+    let s = isPortrait===wantPortrait ? 1000 : 0;
+    const target = wantPortrait ? 1080 : 1920;
+    s -= Math.abs((wantPortrait?h:w) - target);
+    return s;
+  }
+  files.sort((a,b)=>score(b)-score(a));
+  const best = files[0];
+  return {
+    id: v.id, duration: v.duration, width: v.width, height: v.height,
+    thumbnail: v.image, author: (v.user||{}).name||'', url: v.url,
+    file: best ? { link: best.link, width: best.width, height: best.height } : null,
+  };
+}
+async function searchOnce(query, orientation){
+  const key = localKey();
+  if(!key) throw new Error('未設定 Pexels API 金鑰');
+  const params = new URLSearchParams({ query, per_page: '12', page: '1' });
+  if(orientation==='landscape'||orientation==='portrait') params.set('orientation', orientation);
+  const r = await fetch(`https://api.pexels.com/videos/search?${params}`, { headers: { Authorization: key } });
+  if(!r.ok) throw new Error('Pexels 查詢失敗（'+r.status+'）');
+  const data = await r.json();
+  return (data.videos||[]).map(v=>simplifyVideo(v, orientation));
+}
+async function searchClips(i){
+  const seg = state.segments[i];
+  const ori = $('orientation').value;
+  $('pickState'+i).textContent = '搜尋中...';
+  try{
+    const words = seg.keyword.trim().split(/\s+/);
+    const ladder = [];
+    for(let n=words.length; n>=1; n--) ladder.push({q:words.slice(0,n).join(' '), o:ori});
+    ladder.push({q:seg.keyword.trim(), o:'any'});
+    if(words.length>1) ladder.push({q:words[0], o:'any'});
+
+    let videos = [], used = null;
+    for(const step of ladder){
+      videos = await searchOnce(step.q, step.o);
+      if(videos.length){ used = step; break; }
+    }
+    seg.candidates = videos;
+    if(!videos.length){
+      $('pickState'+i).textContent = '找不到影片。建議：換成常見的英文場景詞（可按 💡 靈感挑選）';
+    }else{
+      let note = `找到 ${videos.length} 部，點縮圖選用`;
+      if(used.q !== seg.keyword.trim()) note = `「${seg.keyword}」沒有結果，已改用較寬的「${used.q}」找到 ${videos.length} 部`;
+      else if(used.o === 'any') note = `同方向沒有結果，已放寬為不限方向找到 ${videos.length} 部（合成時會自動裁切）`;
+      $('pickState'+i).textContent = seg.clip?'已選片':note;
+    }
+    renderGrid(i); save();
+  }catch(e){ $('pickState'+i).textContent = '搜尋失敗：'+e.message; }
+}
+function pickClip(i,j){
+  const seg = state.segments[i];
+  const v = seg.candidates[j];
+  if(!v.file){ alert('這部影片沒有可用的檔案'); return; }
+  seg.clip = { url: v.file.link, id: v.id, thumb: v.thumbnail, duration: v.duration, width: v.file.width, height: v.file.height };
+  $('pickState'+i).textContent = `已選 · 素材 ${tc(v.duration)}`;
+  $('prev'+i).innerHTML = `<video class="thumb" style="max-width:280px;aspect-ratio:16/9" crossorigin="anonymous" src="${v.file.link}" controls preload="metadata"></video>`;
+  renderGrid(i); refreshStatus(); save();
+}
+$('pickList').addEventListener('click', e=>{
+  const s = e.target.closest('[data-search]'); if(s){ searchClips(+s.dataset.search); return; }
+  const insp = e.target.closest('[data-inspire]'); if(insp){ openInspire(+insp.dataset.inspire); return; }
+  const t = e.target.closest('[data-pick]');
+  if(t){ const [i,j] = t.dataset.pick.split(':').map(Number); pickClip(i,j); }
+});
+
+// ---------- 💡 常用關鍵字挑選器 ----------
+const KEYWORD_LIBRARY = [
+  ['科技／辦公', [['打字工作','typing on laptop'],['商務會議','business meeting'],['團隊討論','teamwork office'],
+    ['程式碼畫面','programming code screen'],['伺服器機房','server room'],['視訊會議','video call'],
+    ['未來科技感','futuristic technology'],['機器人','robot technology']]],
+  ['教育／學習', [['教室上課','students classroom'],['線上學習','online learning laptop'],['圖書館','library books'],
+    ['寫筆記','writing notes'],['講師授課','teacher presentation'],['畢業','graduation']]],
+  ['生活／家庭', [['居家生活','cozy home living room'],['親子','family children playing'],['寵物','dog playing'],
+    ['早晨日常','morning routine'],['閱讀','reading book coffee'],['微笑人物','happy person smiling']]],
+  ['餐飲／美食', [['沖咖啡','barista pouring coffee'],['咖啡店','cozy coffee shop'],['做菜','cooking kitchen'],
+    ['烘焙','baking bread'],['餐廳用餐','restaurant dining'],['甜點','dessert cake']]],
+  ['自然／風景', [['日出天空','sunrise morning sky'],['海浪','ocean waves beach'],['森林','forest nature'],
+    ['山景','mountain landscape'],['夜空星星','night sky stars'],['雨滴','rain drops window'],['花田','flower field']]],
+  ['城市／交通', [['城市夜景','city night traffic'],['空拍城市','aerial city view'],['街道人潮','busy street crowd'],
+    ['捷運通勤','subway commute'],['開車','driving car road']]],
+  ['運動／健康', [['晨跑','morning jogging exercise'],['健身房','gym workout'],['瑜珈','yoga meditation'],
+    ['伸展','stretching exercise'],['騎腳踏車','cycling outdoor'],['游泳','swimming pool']]],
+  ['商業／金融', [['握手成交','business handshake'],['數據圖表','financial charts data'],['錢／理財','counting money finance'],
+    ['網購','online shopping phone'],['工廠產線','factory production line'],['物流倉儲','warehouse logistics'],
+    ['慶祝成功','celebration success team']]],
+];
+let inspireTarget = null;
+function openInspire(i){
+  inspireTarget = i;
+  let m = $('inspireModal');
+  if(!m){
+    m = document.createElement('div');
+    m.id = 'inspireModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px';
+    m.innerHTML = `<div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;max-width:720px;max-height:80vh;overflow:auto;padding:20px" role="dialog" aria-label="常用關鍵字">
+      <div style="display:flex;align-items:center;margin-bottom:6px"><b>💡 常用關鍵字</b>
+        <span class="hint" style="margin:0 auto 0 12px">點一下即套用並搜尋</span>
+        <button id="inspireClose">關閉</button></div>
+      <div id="inspireBody"></div></div>`;
+    document.body.appendChild(m);
+    $('inspireBody').innerHTML = KEYWORD_LIBRARY.map(([cat,items])=>`
+      <div style="margin:10px 0 2px;color:var(--amber);font-size:13px">${cat}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${items.map(([zh,en])=>
+        `<button data-kwpick="${esc(en)}" title="${esc(en)}" style="font-size:13px;padding:5px 10px">${zh}</button>`).join('')}</div>`).join('');
+    m.addEventListener('click', e=>{
+      if(e.target===m || e.target.id==='inspireClose'){ m.style.display='none'; return; }
+      const b = e.target.closest('[data-kwpick]');
+      if(b && inspireTarget!=null){
+        const kw = b.dataset.kwpick;
+        state.segments[inspireTarget].keyword = kw;
+        const input = document.querySelector(`[data-kw="${inspireTarget}"]`);
+        if(input) input.value = kw;
+        m.style.display='none';
+        save(); searchClips(inspireTarget);
+      }
+    });
+  }
+  m.style.display='flex';
+}
+$('pickList').addEventListener('change', e=>{
+  if(e.target.dataset.kw!=null){ state.segments[+e.target.dataset.kw].keyword = e.target.value; save(); }
+});
+$('orientation').addEventListener('change', save);
+
+// ---------- 3 配音（透過 TTS 代理 Worker） ----------
+function estTTS(){
+  const chars = state.segments.reduce((a,s)=>a+s.text.length,0);
+  return chars ? `共 ${chars} 字` : '';
+}
+let sharedAudioCtx = null;
+function getAudioCtx(){
+  if(!sharedAudioCtx) sharedAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  return sharedAudioCtx;
+}
+async function measureAudioDuration(audioEl){
+  // 這個服務傳回的 mp3 是逐段串流拼接而成，幀邊界偶有不齊（一般播放器/瀏覽器 <audio>
+  // 元件都容忍，但 decodeAudioData 這個嚴格解碼器會直接拒收），所以改用 <audio> 元件
+  // 播放管線取得長度，不要用 decodeAudioData。部分瀏覽器對 blob URL 的 duration 一開始
+  // 回報 Infinity（知名小 bug），用「跳到極大時間點再跳回」的方式強制其計算出正確長度。
+  await new Promise((resolve, reject)=>{
+    audioEl.addEventListener('loadedmetadata', resolve, {once:true});
+    audioEl.addEventListener('error', ()=>reject(new Error('無法解析此音訊')), {once:true});
+  });
+  if(!isFinite(audioEl.duration)){
+    await new Promise((resolve)=>{
+      audioEl.addEventListener('durationchange', function onDur(){
+        if(isFinite(audioEl.duration)){ audioEl.removeEventListener('durationchange', onDur); resolve(); }
+      });
+      audioEl.currentTime = 1e10;
+    });
+    audioEl.currentTime = 0;
+  }
+  return audioEl.duration;
+}
+async function synthesizeSegment(text, voice, rate){
+  const url = ttsWorkerUrl();
+  if(!url) throw new Error('尚未設定語音服務代理網址');
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ text, voice: VOICES[voice]||voice, rate }) });
+  if(!r.ok){
+    let msg = r.status;
+    try{ msg = (await r.json()).error || msg; }catch(e){}
+    throw new Error(String(msg));
+  }
+  const arrayBuffer = await r.arrayBuffer();
+  const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+  const blobUrl = URL.createObjectURL(blob);
+  const probeEl = new Audio();
+  probeEl.src = blobUrl;
+  probeEl.preload = 'metadata';
+  const duration = await measureAudioDuration(probeEl);
+  return { blobUrl, duration };
+}
+async function runTTS(){
+  if(!state.segments.length){ alert('請先在「01 腳本」建立段落'); return; }
+  if(!ttsWorkerUrl()){ alert('請先在下方「🔧 語音服務代理網址」填入代理網址'); $('ttsPanel').open = true; return; }
+  $('btnTTS').disabled = true;
+  $('ttsBarWrap').style.display='block';
+  setDot(3,'run','生成中');
+  try{
+    for(let i=0;i<state.segments.length;i++){
+      $('ttsBar').style.width = Math.round(i/state.segments.length*100)+'%';
+      $('ttsMsg').textContent = `生成第 ${i+1}/${state.segments.length} 段配音...`;
+      $('ttsMsg').classList.remove('err');
+      const seg = state.segments[i];
+      seg.audio = await synthesizeSegment(seg.text, state.voice, $('rate').value);
+      renderAudio();
+    }
+    $('ttsBar').style.width = '100%';
+    setDot(3,'ok','配音完成');
+    $('ttsMsg').textContent = '全部段落配音完成。';
+    refreshStatus(); save(); openStage(4);
+  }catch(e){
+    setDot(3,'idle','失敗');
+    $('ttsMsg').textContent = '配音失敗：'+e.message;
+    $('ttsMsg').classList.add('err');
+  }finally{ $('btnTTS').disabled = false; }
+}
+$('btnTTS').addEventListener('click', runTTS);
+function renderAudio(){
+  $('ttsEst').textContent = estTTS();
+  $('audioList').innerHTML = state.segments.map((s,i)=> s.audio ? `
+    <div class="seg"><div class="seg-top"><span class="seg-idx">S${i+1}</span>
+      <span class="seg-text">${esc(s.text)}</span>
+      <span class="tc warm">${tc(s.audio.duration)}</span></div>
+      <audio controls preload="none" src="${s.audio.blobUrl}"></audio></div>` : '').join('');
+}
+
+// ---------- 4 合成（canvas 逐幀合成 + MediaRecorder 即時錄製） ----------
+function totalDuration(){
+  return state.segments.reduce((a,s)=>a+(s.audio?s.audio.duration:0),0);
+}
+function refreshTotal(){
+  $('totalDur').textContent = state.segments.length ? `全片長度約 ${tc(totalDuration())}` : '';
+}
+function wrapSubtitle(text, limit){
+  const lines = []; let cur = '';
+  for(const ch of text){
+    cur += ch;
+    if(cur.length >= limit){ lines.push(cur); cur = ''; }
+  }
+  if(cur) lines.push(cur);
+  return lines;
+}
+function drawCover(ctx, video, W, H){
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if(!vw || !vh) return;
+  const scale = Math.max(W/vw, H/vh);
+  const dw = vw*scale, dh = vh*scale;
+  ctx.drawImage(video, (W-dw)/2, (H-dh)/2, dw, dh);
+}
+function drawSubtitle(ctx, W, H, text, portrait){
+  const limit = portrait ? 12 : 22;
+  const lines = wrapSubtitle(text, limit);
+  const fontSize = portrait ? 34 : 42;
+  ctx.font = `bold ${fontSize}px "Microsoft JhengHei","Noto Sans TC",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.lineWidth = fontSize/8;
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillStyle = '#fff';
+  const lineHeight = fontSize * 1.3;
+  const startY = H - 40 - (lines.length-1)*lineHeight;
+  lines.forEach((line, i) => {
+    const y = startY + i*lineHeight;
+    ctx.strokeText(line, W/2, y);
+    ctx.fillText(line, W/2, y);
+  });
+}
+function drawWatermark(ctx, W, H, portrait){
+  const fontSize = portrait ? 22 : 28;
+  ctx.font = `bold ${fontSize}px Arial,sans-serif`;
+  ctx.textAlign = 'right';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillText('AI Video Studio', W-20, H-20);
+  ctx.shadowColor = 'transparent';
+}
+function pickMime(){
+  const candidates = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  for(const m of candidates) if(window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+  return null;
+}
+async function playSegment(seg, ctx, W, H, audioCtx, recDest, withSubs, portrait, onTick){
+  const video = document.createElement('video');
+  video.crossOrigin = 'anonymous';
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.src = seg.clip.url;
+  await new Promise((resolve, reject)=>{
+    video.addEventListener('loadeddata', resolve, {once:true});
+    video.addEventListener('error', ()=>reject(new Error('影片素材載入失敗')), {once:true});
+  });
+  await video.play();
+
+  // 用全新的 <audio> 元素播放（不是 decodeAudioData），這個服務吐出的 mp3 幀邊界
+  // 偶有不齊，瀏覽器原生播放管線能容忍、decodeAudioData 卻會直接拒收，見 measureAudioDuration() 註解
+  const audioEl = new Audio();
+  audioEl.src = seg.audio.blobUrl;
+  const srcNode = audioCtx.createMediaElementSource(audioEl);
+  srcNode.connect(recDest);
+  srcNode.connect(audioCtx.destination);
+
+  let raf = null;
+  function draw(){
+    drawCover(ctx, video, W, H);
+    if(withSubs) drawSubtitle(ctx, W, H, seg.text, portrait);
+    drawWatermark(ctx, W, H, portrait);
+    raf = requestAnimationFrame(draw);
+  }
+  draw();
+
+  await new Promise((resolve, reject)=>{
+    audioEl.addEventListener('ended', resolve, {once:true});
+    audioEl.addEventListener('error', ()=>reject(new Error('配音播放失敗')), {once:true});
+    audioEl.play().catch(reject);
+  });
+  cancelAnimationFrame(raf);
+  video.pause();
+  video.src = '';
+  srcNode.disconnect();
+}
+async function runCompose(){
+  const missing = [];
+  state.segments.forEach((s,i)=>{
+    if(!s.clip) missing.push(`S${i+1} 未選片`);
+    if(!s.audio) missing.push(`S${i+1} 未配音`);
+  });
+  if(!state.segments.length){ alert('請先建立段落'); return; }
+  if(missing.length){ alert('尚未就緒：\n'+missing.join('\n')); return; }
+  const mime = pickMime();
+  if(!mime){ alert('這個瀏覽器不支援即時錄製，請改用 Chrome 或 Edge'); return; }
+
+  const portrait = $('orientation').value === 'portrait';
+  const W = portrait ? 1080 : 1920, H = portrait ? 1920 : 1080;
+  const canvas = $('composeCanvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  $('composeCanvasWrap').style.display = 'block';
+
+  const audioCtx = getAudioCtx();
+  if(audioCtx.state === 'suspended') await audioCtx.resume();
+  const recDest = audioCtx.createMediaStreamDestination();
+  const canvasStream = canvas.captureStream(30);
+  const stream = new MediaStream([...canvasStream.getVideoTracks(), ...recDest.stream.getAudioTracks()]);
+
+  const chunks = [];
+  const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 });
+  recorder.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+
+  $('btnCompose').disabled = true;
+  $('cpBarWrap').style.display = 'block';
+  $('composeHint').textContent = '正在即時錄製，請保持此分頁在前景，不要切換到其他分頁或視窗。';
+  setDot(4,'run','合成中');
+
+  const total = totalDuration();
+  const t0 = performance.now();
+  let progTimer = setInterval(()=>{
+    const elapsed = (performance.now()-t0)/1000;
+    const pct = Math.min(99, Math.round(elapsed/Math.max(total,0.1)*100));
+    $('cpBar').style.width = pct+'%';
+    $('cpMsg').textContent = `即時錄製中... ${pct}%（約 ${tc(Math.max(0,total-elapsed))} 剩餘）`;
+  }, 300);
+
+  try{
+    recorder.start(500);
+    const withSubs = $('subtitles').checked;
+    for(let i=0;i<state.segments.length;i++){
+      await playSegment(state.segments[i], ctx, W, H, audioCtx, recDest, withSubs, portrait);
+    }
+    recorder.stop();
+    await new Promise(resolve => { recorder.onstop = resolve; });
+    clearInterval(progTimer);
+    $('cpBar').style.width = '100%';
+    const blob = new Blob(chunks, { type: mime.split(';')[0] });
+    const url = URL.createObjectURL(blob);
+    setDot(4,'ok','完成 '+tc(total));
+    $('cpMsg').textContent = '合成完成。';
+    $('finalWrap').innerHTML = `
+      <video src="${url}" controls></video>
+      <div class="row"><a href="${url}" download="ai_video_studio_output.webm"><button class="primary">下載影片（.webm）</button></a>
+      <span class="tc">${tc(total)}</span></div>`;
+  }catch(e){
+    clearInterval(progTimer);
+    setDot(4,'idle','失敗');
+    $('cpMsg').textContent = '合成失敗：'+e.message;
+    $('cpMsg').classList.add('err');
+  }finally{
+    $('btnCompose').disabled = false;
+  }
+}
+$('btnCompose').addEventListener('click', runCompose);
+$('subtitles').addEventListener('change', save);
+
+// ---------- 其他 ----------
+function refreshStatus(){
+  const n = state.segments.length;
+  const picked = state.segments.filter(s=>s.clip).length;
+  const voiced = state.segments.filter(s=>s.audio).length;
+  if(n){
+    setDot(2, picked===n?'ok':'idle', `${picked}/${n} 已選片`);
+    if(voiced===n) setDot(3,'ok',`${voiced}/${n} 已配音`);
+    else if($('dot3').className.indexOf('run')<0) setDot(3,'idle', voiced?`${voiced}/${n} 已配音`:'等待腳本');
+    if(picked===n && voiced===n && $('dot4').className.indexOf('run')<0 && $('dot4').className.indexOf('ok')<0)
+      setDot(4,'idle','素材就緒');
+  }
+  refreshTotal();
+}
+$('btnReset').addEventListener('click', ()=>{
+  if(!confirm('清空目前專案？')) return;
+  localStorage.removeItem('avsWeb_state');
+  location.reload();
+});
+
+load(); loadVoices(); checkStatus();
+if(state.segments.length){
+  $('parseInfo').textContent = `已載入上次的 ${state.segments.length} 段（配音需重新生成）。`;
+  setDot(1,'ok',`${state.segments.length} 段`);
+  renderPicker(); refreshStatus();
+}
+</script>
+</body>
+</html>

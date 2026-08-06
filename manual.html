@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 影音工坊（純瀏覽器版）操作手冊</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<style>
+:root{--bg:#fff;--text:#1f2328;--muted:#59636e;--line:#d1d9e0;--accent:#b25e09;--panel:#f6f8fa}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0d1117;--text:#f0f6fc;--muted:#9198a1;--line:#3d444d;--accent:#e8a33d;--panel:#151b23}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:15px;line-height:1.75}
+main{max-width:820px;margin:0 auto;padding:36px 24px 80px}
+h1{font-size:24px;border-bottom:1px solid var(--line);padding-bottom:10px}
+h2{font-size:19px;margin-top:36px;border-bottom:1px solid var(--line);padding-bottom:6px}
+code,kbd{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13.5px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:14px 0}
+.warn{border-left:4px solid var(--accent)}
+table{border-collapse:collapse;width:100%;margin:12px 0}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;font-size:14px}
+th{background:var(--panel)}
+a{color:var(--accent)}
+.muted{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<h1>🎬 AI 影音工坊（純瀏覽器版）操作手冊</h1>
+<p>用 <b>Pexels 免費影庫</b>的畫面配上<b>線上語音配音</b>與<b>字幕</b>，一站合成短影片。<b>整個運算過程都在你的瀏覽器裡完成</b>，沒有任何伺服器儲存你的內容；打開網頁即可用，不需要下載安裝或申請帳號（唯一例外是 Pexels 金鑰，免費申請）。</p>
+
+<div class="box warn">
+<b>技術限制：合成是「即時錄製」</b><br>
+這個版本沒有後端伺服器幫忙用 ffmpeg 快速合成，改用瀏覽器內建的 <code>MediaRecorder</code> 邊播邊錄，所以<b>合成所需時間跟影片長度差不多</b>（例如影片 30 秒，合成也要花大約 30 秒）。過程中請讓分頁保持在前景，切到背景分頁或最小化視窗會讓瀏覽器降低更新頻率，導致畫面卡頓甚至全黑。建議使用 <b>Chrome 或 Edge</b>（Safari 對這裡用到的瀏覽器功能支援較不穩定）。
+</div>
+
+<div class="box warn">
+<b>配音為什麼需要一個額外的網址？</b><br>
+瀏覽器基於安全設計，不允許網頁的 JavaScript 程式碼偽造連線來源（Origin），而線上語音合成服務會檢查這個來源，所以網頁沒辦法直接連上去要求配音。解法是透過一個極輕量的「代理」（跑在 Cloudflare 免費方案上，不是傳統意義的伺服器，也不會儲存任何內容），只負責把配音請求轉發過去、把結果原封不動送回來。這是唯一「不是純瀏覽器完成」的一步，其餘搜尋、下載、合成、字幕、浮水印都在你的瀏覽器裡跑。
+</div>
+
+<h2>🚀 快速開始</h2>
+<ol>
+  <li>直接打開這個網頁（GitHub Pages 網址或本機檔案皆可）。</li>
+  <li>在「01 腳本」輸入文字（一行一段，格式：<code>字幕文字 | 英文搜尋關鍵字</code>），選好聲音與語速，或直接按內建範例，按「建立段落」。</li>
+  <li>「02 選片」：展開 🔑 填入 Pexels 金鑰（免費申請，見下方），每段按「搜尋影片」挑一部喜歡的畫面。</li>
+  <li>「03 配音」：展開 🔧 確認「語音服務代理網址」已填好（作者已預先填入預設網址；若失效可自行部署一份，見下方），按「生成全部配音」。</li>
+  <li>「04 合成」：按「合成影片」，<b>保持分頁在前景</b>等待錄製完成（約等於影片長度），完成後可預覽、下載（.webm 檔）。</li>
+</ol>
+
+<h2>🧰 事前準備：申請 Pexels API 金鑰（免費）</h2>
+<div class="box">到 <a href="https://www.pexels.com/api/" target="_blank">pexels.com/api</a> 註冊即可立即取得金鑰，填入「02 選片」的 🔑 金鑰欄位。金鑰只存在你的瀏覽器裡，搜尋/下載影片時直接從你的瀏覽器打給 Pexels，不會經過任何中間伺服器。</div>
+
+<h2>📋 四個階段</h2>
+<table>
+  <tr><th>階段</th><th>做什麼</th></tr>
+  <tr><td>01 腳本</td><td>一行一段輸入字幕文字與搜尋關鍵字，並選擇配音聲音與語速。台詞不變時，重建段落會保留已選的影片。</td></tr>
+  <tr><td>02 選片</td><td>選擇畫面方向（橫式/直式）；每段可搜尋 Pexels，或按 💡 從常用關鍵字挑選。搜尋與挑選都直接在瀏覽器裡呼叫 Pexels，不經過任何伺服器。</td></tr>
+  <tr><td>03 配音</td><td>按「生成全部配音」，透過語音服務代理取得每段口白（需要網路連線）。</td></tr>
+  <tr><td>04 合成</td><td>可勾選把字幕燒進畫面。瀏覽器即時播放＋錄製，輸出 1920×1080（橫式）或 1080×1920（直式）的 .webm 影片，右下角固定燒錄「AI Video Studio」浮水印。</td></tr>
+</table>
+
+<h2>💾 資料存在哪裡</h2>
+<p>腳本、關鍵字、已選的影片連結存在瀏覽器 localStorage，關掉分頁不會消失；<b>配音音檔跟合成結果不會被保留</b>（重新整理頁面後配音要重新生成一次）——這是純瀏覽器架構的取捨，換來的是完全不需要任何後端儲存空間。</p>
+
+<h2>🔧 給進階使用者：自己部署一份語音服務代理</h2>
+<p>如果作者提供的預設代理網址失效或額度用盡，你可以免費申請自己的 <a href="https://dash.cloudflare.com/sign-up" target="_blank">Cloudflare</a> 帳號，把本專案的 <code>worker.js</code> 部署成自己的 Worker（<code>npx wrangler deploy</code>），取得一個 <code>https://xxx.workers.dev</code> 網址，貼到「03 配音」的「🔧 語音服務代理網址」欄位即可，設定只存在你的瀏覽器。</p>
+
+<h2>❓ 常見問題</h2>
+<p><b>配音失敗，顯示「尚未設定語音服務代理網址」？</b><br>展開「03 配音」下方的「🔧 語音服務代理網址」，確認網址存在且正確；若持續失敗可能是該代理服務暫時額度用盡或離線。</p>
+<p><b>搜尋失敗（401 / 未設定金鑰）？</b><br>確認已在「02 選片」填入 Pexels 金鑰；金鑰錯誤請重新複製貼上。</p>
+<p><b>合成到一半畫面卡住或變黑？</b><br>合成期間分頁被切到背景（例如切換視窗、最小化）會讓瀏覽器降頻導致這個現象。請重新合成一次，過程中保持分頁在最前面、不要切換。</p>
+<p><b>下載的影片副檔名是 .webm 不是 .mp4？</b><br>這是瀏覽器內建 <code>MediaRecorder</code> 的輸出格式，主流播放器與剪輯軟體都能開啟；若需要 .mp4，可用任何免費線上轉檔工具或 <code>ffmpeg -i in.webm -c:v libx264 out.mp4</code> 轉換。</p>
+
+<div class="box warn">
+<b>使用限制</b><br>
+影片素材來自 <a href="https://www.pexels.com" target="_blank">Pexels</a>，依 Pexels 授權條款可免費使用（禁止原封不動轉售素材本身）。<br>
+配音為線上制式聲音，非真人聲音克隆，可自由使用生成結果。
+</div>
+
+<h2 id="關於創作者">👤 關於創作者</h2>
+<p>Mark Tsai（蔡豐全） 為深耕創業輔導與數位轉型領域的顧問與講師，長期擔任勞動力發展署創業顧問與多項政府計畫的顧問、業師與評審委員，協助中小企業導入數據分析與 AI 工具、申請政府補助計畫，並具備跨境電商實務與講師培訓的豐富經驗。「AI 影音工坊」即是其推廣 AI 工具運用於教學與課程情境的作品之一。</p>
+<p>聯絡信箱：<a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a></p>
+
+<p class="muted">AI 影音工坊（純瀏覽器版） · 創作者 Mark Tsai（蔡豐全） · <a href="mailto:tsaimark@gmail.com">tsaimark@gmail.com</a></p>
+</main>
+</body>
+</html>
