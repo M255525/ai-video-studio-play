@@ -46,9 +46,14 @@
 
 獨立巢狀 repo（`.git` 只存在這一層，跟外層 `ai-video-studio/` 那個本機用途 repo 無關，模式比照 [[aivideo-studio-online-project]]）。已建立公開 GitHub repo **`M255525/ai-video-studio-play`** 並 push，**已啟用 GitHub Pages**（`master` 分支根目錄），線上網址：<https://m255525.github.io/ai-video-studio-play/>。已用真實 Chrome 分頁開這個線上網址驗證頁面正確載入、聲音清單正常、fail-closed 提示文字正確顯示。
 
+## worker.js 部署狀態
+
+**發現一個好用的捷徑**：`wrangler deploy --temporary` 可以完全不登入、不用先申請帳號，靠一個 proof-of-work 挑戰直接建立一個「暫時帳號」並部署 Worker，立刻拿到可用的 `*.workers.dev` 網址。**但這個帳號／部署只保留 60 分鐘**，逾時不認領（visit `https://dash.cloudflare.com/claim-preview?claimToken=...` 那個一次性網址、綁定成使用者自己的真實 Cloudflare 帳號）就會被刪除。
+
+2026-08-06 用這個方式部署了 `ai-video-studio-tts`，網址 `https://ai-video-studio-tts.pear-sea-880.workers.dev` 已回填進 `index.html` 的 `DEFAULT_TTS_WORKER_URL` 並推上 GitHub Pages。**⚠️ 這個網址目前是暫時性的**——使用者必須在部署後 60 分鐘內點開認領網址完成綁定（需要使用者自己登入或註冊一個真實 Cloudflare 帳號，這步驟不能由 Claude 代勞），否則配音功能會在 1 小時後失效。若逾時失效，重新部署只需要在這個資料夾內再跑一次 `npx wrangler deploy`（使用者已認領過帳號的話，`wrangler login` 一次即可長期使用，不需要每次都走臨時帳號流程）。
+
 ## 待辦
 
-- **`worker.js` 尚未部署到正式 Cloudflare 帳號**，`index.html` 的 `DEFAULT_TTS_WORKER_URL` 常數目前是空字串（fail-closed，比照工作區 `LICENSE_CHECK_URL` 慣例），線上網址目前配音功能無法使用（其餘功能不受影響）。使用者選擇「先 push 前端、晚點再處理 Cloudflare」，需要使用者自己申請免費 Cloudflare 帳號並部署（帳號申請/OAuth 授權這類動作不能由 Claude 代勞），部署後把網址回填到這個常數並 commit，或使用者自行在頁面「🔧 語音服務代理網址」欄位填入亦可（設定存 localStorage，不需要改原始碼、不需要重新部署）。
 - manual.html 的「跟其他版本的差異」小節連結指向 `ai-video-studio-lite`，兩個 repo 之後可以互相連結。
 
 ## 指令
