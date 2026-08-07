@@ -1222,14 +1222,27 @@ async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, recCtl, 
   audioEl.src = seg.audio.blobUrl;
 
   let raf = null;
-  function draw(){
-    drawCover(ctx, video, W, H);
-    if(withSubs) drawSubtitle(ctx, W, H, seg.text, portrait);
-    drawWatermark(ctx, W, H, portrait);
-    // 手動請求送出這一格畫面（captureStream(0) 是手動模式，不會自動每 30fps 取樣）——
-    // 這樣才能保證錄到的每一格都是「剛畫完」的真實內容，不會抓到瀏覽器內部自動取樣
-    // 時間點跟畫布實際更新沒對齊而錄到舊畫面/黑畫面的狀況（手機上更容易發生）。
-    if(recCtl.manual && recCtl.track) recCtl.track.requestFrame();
+  let lastFrameTime = 0;
+  // 上限 30fps——requestAnimationFrame 會跟著螢幕更新率跑，手機若是 90/120Hz 高更新率
+  // 螢幕，沒設上限的話這個迴圈每秒會畫 90~120 次 1080p 全畫面（含字幕/浮水印文字繪製）
+  // 並各送一格進 MediaRecorder 編碼器，對手機 CPU／硬體編碼器是很重的持續負擔，很可能
+  // 把音訊編碼那條路徑的 CPU 時間搶走，導致匯出檔案裡真的錄進一小段一小段的音訊斷點
+  // （使用者回報：手機合成的影片裡講話講到一半會斷一下又繼續，重新播放匯出檔案也還在，
+  // 代表是真的錄進輸出檔、不是現場監聽的錯覺）。30fps 對這類素材（股票影片/口白搭配字幕）
+  // 已經足夠流暢，不需要跟到螢幕原生更新率。
+  const FRAME_INTERVAL_MS = 1000/30;
+  function draw(now){
+    if(now === undefined) now = performance.now();
+    if(now - lastFrameTime >= FRAME_INTERVAL_MS){
+      lastFrameTime = now;
+      drawCover(ctx, video, W, H);
+      if(withSubs) drawSubtitle(ctx, W, H, seg.text, portrait);
+      drawWatermark(ctx, W, H, portrait);
+      // 手動請求送出這一格畫面（captureStream(0) 是手動模式，不會自動每 30fps 取樣）——
+      // 這樣才能保證錄到的每一格都是「剛畫完」的真實內容，不會抓到瀏覽器內部自動取樣
+      // 時間點跟畫布實際更新沒對齊而錄到舊畫面/黑畫面的狀況（手機上更容易發生）。
+      if(recCtl.manual && recCtl.track) recCtl.track.requestFrame();
+    }
     raf = requestAnimationFrame(draw);
   }
   draw(); // 先同步畫出第一格真實畫面（呼叫本身是同步的，只有下一格才透過 rAF 排程）
