@@ -1203,6 +1203,18 @@ async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, recCtl, 
   });
   await video.play();
 
+  // 等到影片真的解出至少一格畫面才開始畫進 canvas——loadeddata／play() resolve
+  // 只代表播放已啟動，不保證硬體解碼器已經吐出可畫的第一格真實內容，這段延遲在
+  // 手機上尤其明顯。過去只有第一段靠「延後建立 captureStream/MediaRecorder」間接
+  // 換來這個緩衝時間（見下方 runCompose 的 startRecording 說明），第二段之後沒有
+  // 這層保護，drawImage 畫到還沒解碼完成的 video 會畫出黑畫面，導致每段開頭都黑一下。
+  // requestVideoFrameCallback 是瀏覽器內建、專門用來確認「這格是不是真的解碼完成」
+  // 的 API（Chrome/Edge/Safari 支援，這個工具本來就只支援這幾家），用它等到真的有
+  // 一格畫面才繼續；沒有這個 API 的瀏覽器就維持原本行為（不新增等待）。
+  if(typeof video.requestVideoFrameCallback === 'function'){
+    await new Promise(resolve => video.requestVideoFrameCallback(resolve));
+  }
+
   // 重複使用同一個已在使用者手勢中播放過的 <audio> 元素（見 runCompose 內建立處），
   // 只換 src 播放（不是 decodeAudioData）——這個服務吐出的 mp3 幀邊界偶有不齊，
   // 瀏覽器原生播放管線能容忍、decodeAudioData 卻會直接拒收，見 measureAudioDuration() 註解。
