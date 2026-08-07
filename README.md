@@ -36,15 +36,6 @@ wrangler deploy
 
 ---
 
-## 跟其他版本的差異
-
-同一個工具家族還有兩個版本：
-
-- **[ai-video-studio-lite](https://github.com/M255525/ai-video-studio-lite)** — 需要下載 `python launcher.py` 在本機跑，但功能更完整（真的 ffmpeg 合成、輸出 .mp4）
-- **本版（純瀏覽器版）** — 打開網頁即用，不需下載安裝，但合成是即時錄製（耗時≈影片長度、輸出 .webm）、且沒有持久化儲存（重新整理頁面後配音需要重新生成）
-
----
-
 ## 授權與使用範圍
 
 影片素材來自 [Pexels](https://www.pexels.com)，依 Pexels 授權條款免費使用（禁止原封不動轉售素材本身）。配音為線上制式聲音，非真人聲音克隆。

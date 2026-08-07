@@ -77,7 +77,6 @@
 
 ## 待辦
 
-- manual.html 的「跟其他版本的差異」小節連結指向 `ai-video-studio-lite`，兩個 repo 之後可以互相連結。
 - worker.js／Cloudflare Worker 部署狀態本身未變動（這次四項新功能都在前端完成，沒有動配音代理），仍要留意上面「worker.js 部署狀態」一節提到的暫時帳號 60 分鐘限制。
 
 ## 指令
