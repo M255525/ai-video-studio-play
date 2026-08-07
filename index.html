@@ -1166,7 +1166,7 @@ function initComposeHint(){
     ? '此瀏覽器支援直接輸出 .mp4。'
     : '此瀏覽器僅支援直接輸出 .webm（可用線上工具或 ffmpeg 轉成 .mp4）；較新版本的 Chrome / Edge 通常能直接輸出 .mp4。';
 }
-async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, onTick){
+async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, onReady){
   const clipUrl = await resolveClipUrl(seg.clip);
   const video = document.createElement('video');
   if(seg.clip.source !== 'upload') video.crossOrigin = 'anonymous'; // 本機 blob 不需要、也不該加 crossOrigin
@@ -1185,6 +1185,11 @@ async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, onTick){
   // 瀏覽器原生播放管線能容忍、decodeAudioData 卻會直接拒收，見 measureAudioDuration() 註解。
   audioEl.pause();
   audioEl.src = seg.audio.blobUrl;
+
+  // 只有第一段才會帶 onReady：素材真正準備好、即將開始畫第一格畫面的這一刻，
+  // 才是啟動 MediaRecorder 的正確時機——如果錄製器提早在迴圈最前面就開始，
+  // 手機網路下載/緩衝第一段素材那幾秒空窗會被錄成全黑畫面（見 runCompose 說明）。
+  if(onReady) onReady();
 
   let raf = null;
   function draw(){
@@ -1263,30 +1268,38 @@ async function runCompose(){
 
   $('btnCompose').disabled = true;
   $('cpBarWrap').style.display = 'block';
-  $('composeHint').textContent = '正在即時錄製，請保持此分頁在前景，不要切換到其他分頁或視窗。';
-  setDot(4,'run','合成中');
+  $('composeHint').textContent = '正在準備第一段素材（下載/緩衝影片），請稍候...';
+  setDot(4,'run','準備中');
 
   const total = totalDuration();
-  const t0 = performance.now();
   const FADE_SEC = 2;
-  let progTimer = setInterval(()=>{
-    const elapsed = (performance.now()-t0)/1000;
-    const pct = Math.min(99, Math.round(elapsed/Math.max(total,0.1)*100));
-    $('cpBar').style.width = pct+'%';
-    $('cpMsg').textContent = `即時錄製中... ${pct}%（約 ${tc(Math.max(0,total-elapsed))} 剩餘）`;
-    if(musicEl){
-      const fadeStart = total - FADE_SEC;
-      musicEl.volume = elapsed >= fadeStart
-        ? Math.max(0, musicVolume * (1 - (elapsed-fadeStart)/FADE_SEC))
-        : musicVolume;
-    }
-  }, 300);
+  let t0 = 0;
+  let progTimer = null;
+  // 延後到第一段素材真正準備好（見 playSegment 的 onReady）才啟動，避免把
+  // 下載/緩衝第一段素材那幾秒空窗錄成全黑畫面。
+  function startRecording(){
+    recorder.start(500);
+    t0 = performance.now();
+    $('composeHint').textContent = '正在即時錄製，請保持此分頁在前景，不要切換到其他分頁或視窗。';
+    setDot(4,'run','合成中');
+    progTimer = setInterval(()=>{
+      const elapsed = (performance.now()-t0)/1000;
+      const pct = Math.min(99, Math.round(elapsed/Math.max(total,0.1)*100));
+      $('cpBar').style.width = pct+'%';
+      $('cpMsg').textContent = `即時錄製中... ${pct}%（約 ${tc(Math.max(0,total-elapsed))} 剩餘）`;
+      if(musicEl){
+        const fadeStart = total - FADE_SEC;
+        musicEl.volume = elapsed >= fadeStart
+          ? Math.max(0, musicVolume * (1 - (elapsed-fadeStart)/FADE_SEC))
+          : musicVolume;
+      }
+    }, 300);
+  }
 
   try{
-    recorder.start(500);
     const withSubs = $('subtitles').checked;
     for(let i=0;i<state.segments.length;i++){
-      await playSegment(state.segments[i], ctx, W, H, audioEl, withSubs, portrait);
+      await playSegment(state.segments[i], ctx, W, H, audioEl, withSubs, portrait, i===0 ? startRecording : null);
     }
     recorder.stop();
     await new Promise(resolve => { recorder.onstop = resolve; });
