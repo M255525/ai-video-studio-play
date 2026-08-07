@@ -1159,6 +1159,28 @@ function pickMime(){
   return null;
 }
 function isMp4Mime(mime){ return mime.indexOf('video/mp4') === 0; }
+async function primeEncoder(mime){
+  // 部分手機（尤其中低階 Android）的硬體視訊編碼器在分頁裡第一次真正啟動
+  // MediaRecorder 時有「暖機」延遲，這段期間輸出的畫格可能是黑的或亂碼——
+  // 這是瀏覽器/作業系統層級的行為，光靠調整畫布/錄製器的呼叫順序無法完全避免。
+  // 用一個丟棄用的極小畫布跑一次極短的假錄製，讓編碼器先初始化好，之後真正
+  // 開始錄製時就已經是熱的。失敗也沒關係（靜默吞掉），不影響正式錄製流程。
+  try{
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    const cctx = c.getContext('2d');
+    cctx.fillStyle = '#808080';
+    cctx.fillRect(0, 0, 64, 64);
+    const stream = c.captureStream(10);
+    const rec = new MediaRecorder(stream, { mimeType: mime });
+    rec.ondataavailable = () => {};
+    rec.start();
+    await new Promise(resolve => setTimeout(resolve, 400));
+    rec.stop();
+    await new Promise(resolve => { rec.onstop = resolve; });
+    stream.getTracks().forEach(t => t.stop());
+  }catch(e){ /* 靜默失敗 */ }
+}
 function initComposeHint(){
   const mime = pickMime();
   if(!mime){ $('composeHint').textContent = '⚠ 這個瀏覽器不支援即時錄製功能，請改用 Chrome 或 Edge。'; return; }
@@ -1202,7 +1224,7 @@ async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, recCtl, 
   // 只有第一段才會帶 onReady：canvas 已經有真實畫面內容了，這一刻才建立
   // canvas.captureStream()／MediaRecorder 並啟動錄製，並立刻手動送出這格已經畫好
   // 的畫面當作第一格關鍵影格。素材下載/緩衝那幾秒空窗完全發生在這之前，不會被錄進去。
-  if(onReady) onReady();
+  if(onReady) await onReady();
 
   await new Promise((resolve, reject)=>{
     audioEl.addEventListener('ended', resolve, {once:true});
@@ -1223,6 +1245,10 @@ async function runCompose(){
   if(missing.length){ alert('尚未就緒：\n'+missing.join('\n')); return; }
   const mime = pickMime();
   if(!mime){ alert('這個瀏覽器不支援即時錄製，請改用 Chrome 或 Edge'); return; }
+
+  // 跟第一段素材的網路下載/緩衝同時在背景「預熱」視訊編碼器（見 primeEncoder 說明），
+  // 通常不會增加額外等待——startRecording() 裡會在真正開始錄製前確認這個已經完成。
+  const primeEncoderPromise = primeEncoder(mime);
 
   // 建立整段合成過程共用的單一 <audio> 元素，並在使用者手勢範圍內（還沒 await
   // 任何東西）立刻同步播放一次——iOS Safari 的自動播放解鎖是綁定在「這個特定
@@ -1282,7 +1308,8 @@ async function runCompose(){
   // captureStream 建立之前，不會被錄進去。用 captureStream(0)（手動模式）而非
   // 固定 30fps 自動取樣，改由 draw() 每次畫完手動 requestFrame()，確保錄到的
   // 每一格都對應剛畫完的真實內容。
-  function startRecording(){
+  async function startRecording(){
+    await primeEncoderPromise; // 確保編碼器已經預熱過，見上方 primeEncoder 說明
     const manualTrack = canvas.captureStream(0).getVideoTracks()[0];
     // 沒有 requestFrame() 的瀏覽器（罕見）就退回固定 30fps 自動取樣。
     const manual = typeof manualTrack.requestFrame === 'function';
