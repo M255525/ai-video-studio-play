@@ -1,5 +1,7 @@
 # AI 影音工坊（純瀏覽器版）
 
+[![Hits](https://hits.sh/github.com/M255525/ai-video-studio-play.svg)](https://hits.sh/github.com/M255525/ai-video-studio-play/)
+
 打開網頁就能玩的 AI 影片製作工具——用 **Pexels 免費影庫**畫面配上**線上語音配音**與**字幕**，一站合成短影片。**沒有後端伺服器**（除了一個極輕量、只負責轉發配音請求的代理），影片搜尋、下載、合成通通在你的瀏覽器裡完成。
 
 ---
