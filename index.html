@@ -1135,15 +1135,27 @@ function drawSubtitle(ctx, W, H, text, portrait){
     ctx.fillText(line, W/2, y);
   });
 }
+let watermarkImg = null;
+let watermarkImgPromise = null;
+function loadWatermarkImage(){
+  if(!watermarkImgPromise){
+    watermarkImgPromise = new Promise(resolve=>{
+      const img = new Image();
+      img.onload = ()=>{ watermarkImg = img; resolve(); };
+      img.onerror = ()=> resolve(); // 載入失敗就不畫浮水印，不擋合成流程
+      img.src = 'assets/watermark.png';
+    });
+  }
+  return watermarkImgPromise;
+}
 function drawWatermark(ctx, W, H, portrait){
-  const fontSize = portrait ? 22 : 28;
-  ctx.font = `bold ${fontSize}px Arial,sans-serif`;
-  ctx.textAlign = 'right';
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
-  ctx.fillText('AI Video Studio', W-20, H-20);
-  ctx.shadowColor = 'transparent';
+  if(!watermarkImg) return;
+  const targetH = portrait ? 70 : 90;
+  const targetW = targetH * (watermarkImg.width / watermarkImg.height);
+  const margin = 16;
+  ctx.globalAlpha = 0.9;
+  ctx.drawImage(watermarkImg, W - targetW - margin, H - targetH - margin, targetW, targetH);
+  ctx.globalAlpha = 1;
 }
 function pickMime(){
   // 優先嘗試讓 MediaRecorder 直接輸出 mp4（較新版 Chrome/Edge 用平台內建 H.264 編碼器支援），
@@ -1271,6 +1283,8 @@ async function runCompose(){
   if(missing.length){ alert('尚未就緒：\n'+missing.join('\n')); return; }
   const mime = pickMime();
   if(!mime){ alert('這個瀏覽器不支援即時錄製，請改用 Chrome 或 Edge'); return; }
+
+  await loadWatermarkImage(); // 確保浮水印圖檔已就緒（多半在頁面載入時就已完成，這裡是保險）
 
   // 跟第一段素材的網路下載/緩衝同時在背景「預熱」視訊編碼器（見 primeEncoder 說明），
   // 通常不會增加額外等待——startRecording() 裡會在真正開始錄製前確認這個已經完成。
@@ -1477,7 +1491,7 @@ $('btnReset').addEventListener('click', ()=>{
   location.reload();
 });
 
-load(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint(); renderMusicPanel();
+load(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint(); renderMusicPanel(); loadWatermarkImage();
 if(state.segments.length){
   $('parseInfo').textContent = `已載入上次的 ${state.segments.length} 段（配音需重新生成）。`;
   setDot(1,'ok',`${state.segments.length} 段`);
