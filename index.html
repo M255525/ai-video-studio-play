@@ -173,7 +173,6 @@ body.has-marquee{padding-top:32px}
 (function () {
   'use strict';
   var deferredPrompt = null;
-  var btn = document.getElementById('installBtn');
 
   var ua = navigator.userAgent || '';
   var isIOSDevice = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -195,7 +194,9 @@ body.has-marquee{padding-top:32px}
     deferredPrompt = null;
   });
 
-  if (btn) {
+  function bindInstallButton() {
+    var btn = document.getElementById('installBtn');
+    if (!btn) return;
     if (isStandalone) {
       btn.style.display = 'none';
     } else {
@@ -212,6 +213,11 @@ body.has-marquee{padding-top:32px}
         }
       });
     }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindInstallButton);
+  } else {
+    bindInstallButton();
   }
 
   if ('serviceWorker' in navigator) {
