@@ -7,7 +7,11 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#E8A33D">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="AI影音工坊">
 <style>
 :root{
   --bg:#16181D; --panel:#1F232B; --panel2:#262B34; --line:#30363F;
@@ -171,6 +175,18 @@ body.has-marquee{padding-top:32px}
   var deferredPrompt = null;
   var btn = document.getElementById('installBtn');
 
+  var ua = navigator.userAgent || '';
+  var isIOSDevice = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isMacDesktop = /Macintosh/.test(ua) && !isIOSDevice;
+  var isSafariEngine = /^((?!chrome|crios|fxios|edgios|android).)*safari/i.test(ua);
+  var isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+
+  function fallbackMessage() {
+    if (isIOSDevice) return '請點畫面上的「分享」圖示，選「加入主畫面」';
+    if (isMacDesktop && isSafariEngine) return '請用選單列「檔案」→「加入 Dock」（Safari 17 以上）';
+    return '瀏覽器不支援，或已安裝過';
+  }
+
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferredPrompt = e;
@@ -180,16 +196,21 @@ body.has-marquee{padding-top:32px}
   });
 
   if (btn) {
-    var originalLabel = btn.textContent;
-    btn.addEventListener('click', function () {
-      if (!deferredPrompt) {
-        btn.textContent = '瀏覽器不支援，或已安裝過';
-        setTimeout(function () { btn.textContent = originalLabel; }, 2500);
-        return;
-      }
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
-    });
+    if (isStandalone) {
+      btn.style.display = 'none';
+    } else {
+      var originalLabel = btn.textContent;
+      btn.addEventListener('click', function () {
+        if (!deferredPrompt) {
+          var msg = fallbackMessage();
+          btn.textContent = msg;
+          setTimeout(function () { btn.textContent = originalLabel; }, isIOSDevice || isMacDesktop ? 5000 : 2500);
+          return;
+        }
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+      });
+    }
   }
 
   if ('serviceWorker' in navigator) {
