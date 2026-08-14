@@ -1,0 +1,16 @@
+{
+  "name": "AI 影音工坊（純瀏覽器版）",
+  "short_name": "AI 影音工坊",
+  "description": "免費影庫畫面＋配音口白＋自動合成，純瀏覽器完成",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16181D",
+  "theme_color": "#E8A33D",
+  "lang": "zh-TW",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

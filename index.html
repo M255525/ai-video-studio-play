@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI 影音工坊（純瀏覽器版）</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E8A33D">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
 :root{
   --bg:#16181D; --panel:#1F232B; --panel2:#262B34; --line:#30363F;
@@ -162,10 +165,45 @@ body.has-marquee{padding-top:32px}
   setInterval(fetchMarquee, REFRESH_MS);
 })();
 </script>
+<script>
+(function () {
+  'use strict';
+  var deferredPrompt = null;
+  var btn = document.getElementById('installBtn');
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    deferredPrompt = e;
+  });
+  window.addEventListener('appinstalled', function () {
+    deferredPrompt = null;
+  });
+
+  if (btn) {
+    var originalLabel = btn.textContent;
+    btn.addEventListener('click', function () {
+      if (!deferredPrompt) {
+        btn.textContent = '瀏覽器不支援，或已安裝過';
+        setTimeout(function () { btn.textContent = originalLabel; }, 2500);
+        return;
+      }
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+    });
+  }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('service-worker.js').catch(function () {});
+    });
+  }
+})();
+</script>
 <header>
   <h1>AI 影音工坊</h1>
   <span class="sub">純瀏覽器版 · 打開網頁即可用，無需下載安裝</span>
   <div class="right">
+    <button id="installBtn" title="加入主畫面，像 App 一樣開啟">📲 加入主畫面</button>
     <a href="manual.html" target="_blank"><button title="開啟操作手冊">📖 操作手冊</button></a>
     <button id="btnReset" title="清空目前專案">新專案</button>
   </div>

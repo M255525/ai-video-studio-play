@@ -75,6 +75,10 @@
 
 **測試方法**：本機 `python -m http.server` 起靜態站，Playwright（非 `mcp__claude-in-chrome`——這次分頁全程保持前景可互動，沒有踩到之前記過的「自動化分頁 `visibilityState` 為 `hidden` 導致 `<audio>` 卡住」那個坑）跑過完整流程：上傳一支從既有專案借來的真實測試短片（1.5 秒 mp4）進「我的影片庫」→ 確認 IndexedDB 存進 `duration`/`width`/`height`/縮圖/Blob → 兩個段落都套用該影片 → 用一段手刻的靜音 WAV blob 直接塞進 `state.segments[i].audio`（跳過需要外部帳號的 TTS worker，純測前端合成管線）→ 呼叫 `runCompose()` → 抓出成品 blob 轉 base64 存檔，`ffprobe`/`ffmpeg` 驗證是真正可解碼的 1920×1080 H.264/AAC mp4，並用 Read 工具肉眼確認畫面同時燒進了段落字幕與「AI Video Studio」浮水印 → 點擊分享按鈕確認 `navigator.share()` 正常觸發不拋錯。測試後已清空 IndexedDB 測試資料與 localStorage 狀態、關閉測試伺服器、刪除所有測試用暫存檔案。
 
+## 加入主畫面（PWA，2026-08-14 新增）
+
+比照工作區 `expense-tracker-pwa` 的做法加上安裝支援：`manifest.json`＋`icons/`（深色 `#16181D` 背景、琥珀 `#E8A33D`「影」字圖示）＋`service-worker.js`。**不追求離線可用**（本工具依賴 Pexels／TTS worker 等跨網域請求），SW 採 network-first＋同源快取備援，跨網域請求一律略過不進快取，不需要像 `expense-tracker-pwa` 那樣每次改動升版 `CACHE_NAME`。安裝按鈕（`#installBtn`）放在 `<header>` 右側工具列（跟「📖 操作手冊」「新專案」同排），本工具沒有 `showToast` 這類共用提示元件，改用「點擊後暫時把按鈕文字換成提示文字」的簡易 fallback。邏輯是獨立 `<script>`，跟頂部跑馬燈、主程式邏輯互不相依。已用 Playwright 實測：Chromium 確實判定本頁可安裝並觸發 `beforeinstallprompt`、SW 成功註冊為 `activated`。
+
 ## 待辦
 
 - worker.js／Cloudflare Worker 部署狀態本身未變動（這次四項新功能都在前端完成，沒有動配音代理），仍要留意上面「worker.js 部署狀態」一節提到的暫時帳號 60 分鐘限制。
