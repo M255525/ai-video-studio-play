@@ -199,16 +199,17 @@ body.has-marquee{padding-top:32px}
     if (isStandalone) {
       btn.style.display = 'none';
     } else {
-      var originalLabel = btn.textContent;
       btn.addEventListener('click', function () {
         if (!deferredPrompt) {
-          var msg = fallbackMessage();
-          btn.textContent = msg;
-          setTimeout(function () { btn.textContent = originalLabel; }, isIOSDevice || isMacDesktop ? 5000 : 2500);
+          window.alert(fallbackMessage());
           return;
         }
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+        try {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then(function () { deferredPrompt = null; });
+        } catch (err) {
+          window.alert(fallbackMessage());
+        }
       });
     }
   }
