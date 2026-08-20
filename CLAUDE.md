@@ -84,6 +84,17 @@
 
 **回饋機制與快取踩坑修正（2026-08-14，使用者實測回報「加入主畫面沒有功能」才發現兩層問題）**：(1) 原本無 `showToast` 時用「暫時置換按鈕文字」當提示，在工具列裡太不明顯，使用者完全沒注意到訊息出現過——改成 `window.alert(fallbackMessage())`，`deferredPrompt.prompt()` 也包 try/catch。(2) 改完使用者仍回報沒反應，追查發現 `service-worker.js` 的 `fetch(event.request)` 沒有繞過瀏覽器 HTTP 快取——GitHub Pages 對回應下 `Cache-Control: max-age=600`，10 分鐘內「network-first」名不符實，可能吃到舊版內容重新存進 Cache Storage。改成 `fetch(event.request, {cache:'reload'})` 強制略過 HTTP 快取，`CACHE_NAME` 同步升版 v1→v2 清掉已污染的快取。這是跟 `expense-tracker-pwa` 那次「install 階段 `cache.addAll()` 忘記加 `{cache:'reload'}`」同一個 bug class 的 runtime 版本，細節見 [[pwa-install-rollout]]。
 
+## 頂部跑馬燈（2026-08-20 更新，與 `../index.html`／`../AIvideo_studio/index.html` 同一次改動，`Code.gs` 未改動、不需重新部署）
+
+跟其他兩份原型檔案的跑馬燈邏輯完全同構（`render()` 內的 `bar`/`track` 變數名稱一致）：
+- **不再無條件歸零重跑**：新增 `lastKey`（`JSON.stringify(items)`）比對，每 20 分鐘背景重新抓取時若內容跟上次相同就直接 `return`，不重寫 DOM／不重設 `animationDuration`，CSS animation 因此不會被重置。
+- **支援 `[文字](https://...)` 連結語法**：新增 `appendParsedText()`／`buildTrackContent()`，把共用 Google Sheet「內容」欄裡符合這個 markdown 語法的片段轉成可點擊的 `<a target="_blank" rel="noopener noreferrer">`，其餘文字仍用 `createTextNode` 純文字處理（避免 XSS）。**沒有改 Google Sheet 欄位結構、沒有改 `Code.gs`**，資料格式仍是純字串陣列，向下相容。
+- **行數沒有程式限制**：目前顯示筆數單純取決於共用 Sheet（<https://docs.google.com/spreadsheets/d/1sSBXW2dAc-4u0j21Q72MzNEBIhDccShhr1iJcAdG0UE/edit>）填了幾列，直接加列即可，不需改程式。
+
+驗證方式：本機 `python -m http.server` 起臨時伺服器，瀏覽器開啟頁面確認 console 無錯誤、真實 Sheet 內容仍正常捲動顯示（回歸測試）；另外在同一頁面用相同函式邏輯做隔離測試，確認 `[文字](網址)` 正確轉成 `<a>` 且 `href`/`text` 正確、純文字部分不受影響。測試完成後已關閉臨時伺服器。
+
+工作區內其餘 17 個嵌入這個共用跑馬燈的公開 GitHub Pages 網站尚未套用這次改動（增加行數只需改 Sheet 資料、不歸零重跑與連結語法仍要逐一同步程式碼），詳見 [[shared-widget-rollout]]。
+
 ## 待辦
 
 - worker.js／Cloudflare Worker 部署狀態本身未變動（這次四項新功能都在前端完成，沒有動配音代理），仍要留意上面「worker.js 部署狀態」一節提到的暫時帳號 60 分鐘限制。

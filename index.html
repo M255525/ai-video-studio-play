@@ -146,12 +146,47 @@ body.has-marquee{padding-top:32px}
   var REFRESH_MS = 20 * 60 * 1000;
   var bar = document.getElementById('marqueeBar');
   var track = document.getElementById('marqueeTrack');
+  var lastKey = null;
   function loadCache() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; } }
   function saveCache(items) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch (e) {} }
+  // 把「[文字](https://...)」語法轉成可點擊連結，其餘文字維持純文字（用 createTextNode 避免 XSS）
+  function appendParsedText(container, text) {
+    var re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+    var lastIndex = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > lastIndex) container.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
+      var a = document.createElement('a');
+      a.href = m[2];
+      a.textContent = m[1];
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.color = 'inherit';
+      a.style.textDecoration = 'underline';
+      container.appendChild(a);
+      lastIndex = re.lastIndex;
+    }
+    if (lastIndex < text.length) container.appendChild(document.createTextNode(text.slice(lastIndex)));
+  }
+  function buildTrackContent(items) {
+    var frag = document.createDocumentFragment();
+    function appendPass() {
+      items.forEach(function (item, idx) {
+        if (idx > 0) frag.appendChild(document.createTextNode('　★　'));
+        appendParsedText(frag, item);
+      });
+    }
+    appendPass();
+    frag.appendChild(document.createTextNode('　★　'));
+    appendPass();
+    return frag;
+  }
   function render(items) {
     if (!items || !items.length) return;
-    var joined = items.join('　★　');
-    track.textContent = joined + '　★　' + joined;
+    var key = JSON.stringify(items);
+    if (key === lastKey) return;   // 內容沒變就不重繪，避免 CSS animation 被重置而歸零重跑
+    lastKey = key;
+    track.innerHTML = '';
+    track.appendChild(buildTrackContent(items));
     bar.classList.add('show');
     document.body.classList.add('has-marquee');
     var width = track.scrollWidth / 2;
