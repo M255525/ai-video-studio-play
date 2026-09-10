@@ -905,6 +905,9 @@ function simplifyVideo(v, orientation){
   };
 }
 async function searchOnce(query, orientation){
+  // 序號目前沒解鎖（含已過期）就視為沒有金鑰可用——存在 localStorage 的金鑰本身不變，
+  // 但只有序號驗證「當下」有效才會真的被拿來用，不是存過一次就永久生效
+  if($('pexelsKey').disabled) throw new Error('請先在「02 選片」輸入課程授權序號解鎖 Pexels 金鑰');
   const key = localKey();
   if(!key) throw new Error('未設定 Pexels API 金鑰');
   const params = new URLSearchParams({ query, per_page: '12', page: '1' });
