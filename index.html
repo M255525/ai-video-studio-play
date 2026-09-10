@@ -707,7 +707,9 @@ function pickStateText(clip){
       else localStorage.removeItem(SERIAL_STATE_KEY);
     }catch(e){}
   }
-  function checkSerial(serial, silent){
+  // optimistic：背景重新確認（頁面載入時的快取、每 20 分鐘的靜默重驗）——連線失敗不會把已解鎖的畫面重新鎖回去，
+  // 避免一次暫時性的網路/Apps Script 延遲就讓使用者看到畫面被鎖住；只有伺服器明確回覆序號無效/過期才會真的重新鎖定。
+  function checkSerial(serial, optimistic){
     return fetch(PEXELS_LICENSE_URL, {method:'POST', body: JSON.stringify({serial})})
       .then(r => r.json())
       .then(data => {
@@ -722,7 +724,7 @@ function pickStateText(clip){
           setUnlocked(false, reasonText(data && data.reason));
         }
       })
-      .catch(() => { currentSerial = ''; setUnlocked(false, silent ? $('pexelsSerialMsg').textContent : '連線失敗，請稍後再試'); });
+      .catch(() => { if(!optimistic){ currentSerial = ''; setUnlocked(false, '連線失敗，請稍後再試'); } });
   }
 
   $('btnPexelsSerial').addEventListener('click', () => {
@@ -735,7 +737,16 @@ function pickStateText(clip){
   const saved = loadSavedSerial();
   if(saved && saved.serial){
     $('pexelsSerial').value = saved.serial;
-    checkSerial(saved.serial, true);
+    // 快取的到期日還沒到：立刻樂觀解鎖（不必等這趟網路來回），背景仍會靜默重新確認一次抓最新剩餘天數／被收回的情況
+    const cachedStillValid = saved.expiresAt && new Date(saved.expiresAt).getTime() > Date.now();
+    if(cachedStillValid){
+      currentSerial = saved.serial;
+      const days = Math.max(0, Math.ceil((new Date(saved.expiresAt) - new Date()) / 86400000));
+      setUnlocked(true, '✓ 已解鎖，剩餘 ' + days + ' 天可用');
+      checkSerial(saved.serial, true);
+    }else{
+      checkSerial(saved.serial, false);
+    }
   }else{
     setUnlocked(false, '');
   }
