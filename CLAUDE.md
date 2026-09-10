@@ -84,6 +84,16 @@
 
 **回饋機制與快取踩坑修正（2026-08-14，使用者實測回報「加入主畫面沒有功能」才發現兩層問題）**：(1) 原本無 `showToast` 時用「暫時置換按鈕文字」當提示，在工具列裡太不明顯，使用者完全沒注意到訊息出現過——改成 `window.alert(fallbackMessage())`，`deferredPrompt.prompt()` 也包 try/catch。(2) 改完使用者仍回報沒反應，追查發現 `service-worker.js` 的 `fetch(event.request)` 沒有繞過瀏覽器 HTTP 快取——GitHub Pages 對回應下 `Cache-Control: max-age=600`，10 分鐘內「network-first」名不符實，可能吃到舊版內容重新存進 Cache Storage。改成 `fetch(event.request, {cache:'reload'})` 強制略過 HTTP 快取，`CACHE_NAME` 同步升版 v1→v2 清掉已污染的快取。這是跟 `expense-tracker-pwa` 那次「install 階段 `cache.addAll()` 忘記加 `{cache:'reload'}`」同一個 bug class 的 runtime 版本，細節見 [[pwa-install-rollout]]。
 
+## 🔑 序號解鎖 Pexels 金鑰（2026-09-10 新增，比照主版 `../index.html` 同日新增的做法）
+
+這個純瀏覽器版**沒有伺服器端內建的 Pexels 金鑰**（跟主版 `../index.html`／`../desktop/` 不同——那兩邊都有 `~/.stockvid/.env` 或環境變數的備援金鑰，沒序號也能搜尋；這裡是每個訪客一開始就必須自己填金鑰才能用「02 選片」）。**使用者在 2026-09-10 被明確告知「沒有備援金鑰、會鎖死一般訪客的選片功能」這個後果之後，仍選擇要鎖死**（非預設值，Claude 有先用 AskUserQuestion 確認過）：`#pexelsKey`／`#btnSaveKey` 預設 `disabled`，`#keyPanel` 面板裡新增序號輸入＋「確認」按鈕，驗證通過才解鎖——**沒有序號，一般訪客完全無法使用選片搜尋功能**，這是刻意的行為改變，會影響已上線的公開網站 <https://m255525.github.io/ai-video-studio-play/> 的既有訪客。
+
+- 沿用 `AIvideo_studio/`（教學版）與主版 `../index.html` 同一支已部署的授權伺服器／同一份 Google Sheet（<https://docs.google.com/spreadsheets/d/1NIpoG_dwCTvTTq5BCjPQMK6sQa8rq8aCJPMdWc-rkmc/edit>，`.../AKfycbwKX0DNNbY8y4nf90BFTHtxgfqJcHHcZasRrgycl4QAe52_hkjMWSkYk4xOsqU-JPCROw/exec`）——**沒有新建或修改 `Code.gs`，不需要重新部署**，這支端點本來就已經被本檔的頂部跑馬燈拿來用（帶空序號換 `marquee` 陣列）。
+- `localStorage` 新 key：`avsWeb_pexelsSerial`（`{serial, expiresAt}`）；金鑰仍是原本的 `avsWeb_pexelsKey`，只是現在要序號驗證通過才能寫入。背景每 20 分鐘用目前已驗證的序號靜默重驗，到期會自動把金鑰欄位重新鎖回 `disabled`。
+- `checkStatus()` 的系統橫幅新增一條判斷：`$('pexelsKey').disabled` 為真時優先顯示「🔒 請先輸入序號解鎖」訊息並自動展開 `#keyPanel`，蓋過原本「尚未設定金鑰」那則提示。
+- 示範序號文字與到期日承諾跟主版完全同一個問題：Sheet 裡 `Aa1223456789` 那列（使用者聊天訊息裡打的 `Aa123456789` 少一碼）目前開始/結束日期空白，會在第一次驗證時自動以 12 個月計算到期日，不會自動等於文字承諾的 2026/12/31，需要使用者自己到 Sheet 手動填好該列日期。
+- 已用瀏覽器（claude-in-chrome）對真實已部署的授權伺服器端對端驗證：頁面載入時 fail-closed 橫幅正確顯示「請先輸入序號」、已知測試序號 `mark0131` 驗證通過後解鎖並顯示剩餘天數（**這支 Apps Script 偶爾要等 8-10 秒才回應，不是 bug，等待中的「驗證中...」文字是正常現象，不要誤判成連線失敗就重新設計**）、金鑰儲存成功、重新整理頁面後序號與金鑰皆正確自動還原並重新解鎖。測試後已清空 `avsWeb_pexelsSerial`／`avsWeb_pexelsKey`／`avsWeb_state`。
+
 ## 頂部跑馬燈（2026-08-20 更新，與 `../index.html`／`../AIvideo_studio/index.html` 同一次改動，`Code.gs` 未改動、不需重新部署）
 
 跟其他兩份原型檔案的跑馬燈邏輯完全同構（`render()` 內的 `bar`/`track` 變數名稱一致）：

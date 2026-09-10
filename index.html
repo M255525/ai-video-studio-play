@@ -326,10 +326,16 @@ body.has-marquee{padding-top:32px}
       </label>
     </div>
     <details id="keyPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
-      <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels API 金鑰</summary>
+      <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels API 金鑰（需序號解鎖）</summary>
       <div class="row" style="margin-top:10px">
-        <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰">
-        <button id="btnSaveKey">儲存</button>
+        <input type="text" id="pexelsSerial" style="width:100%;max-width:200px" placeholder="課程授權序號" aria-label="課程授權序號">
+        <button id="btnPexelsSerial">確認</button>
+        <span class="tc" id="pexelsSerialMsg"></span>
+      </div>
+      <p class="hint">可以使用序號 <b>Aa1223456789</b> 登入，有效期到 2026/12/31。序號驗證通過後才能填入並儲存 Pexels 金鑰。</p>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰" disabled>
+        <button id="btnSaveKey" disabled>儲存</button>
       </div>
       <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
     </details>
@@ -673,10 +679,74 @@ function pickStateText(clip){
     : `已選 · 素材 ${tc(clip.duration)}`;
 }
 
+// ---------- 🔑 序號解鎖 Pexels 金鑰（沿用 AIvideo_studio 教學版同一支授權伺服器／Sheet） ----------
+(function(){
+  const PEXELS_LICENSE_URL = "https://script.google.com/macros/s/AKfycbwKX0DNNbY8y4nf90BFTHtxgfqJcHHcZasRrgycl4QAe52_hkjMWSkYk4xOsqU-JPCROw/exec";
+  const SERIAL_STATE_KEY = 'avsWeb_pexelsSerial';
+  const REVALIDATE_MS = 20 * 60 * 1000;
+  let currentSerial = '';
+
+  function reasonText(reason){
+    if(reason === 'serial_not_found') return '✗ 查無此授權序號';
+    if(reason === 'expired') return '✗ 序號已過期';
+    if(reason === 'missing_serial') return '請輸入序號';
+    return '✗ 驗證失敗，請稍後再試';
+  }
+  function setUnlocked(unlocked, note){
+    $('pexelsKey').disabled = !unlocked;
+    $('btnSaveKey').disabled = !unlocked;
+    if(note != null) $('pexelsSerialMsg').textContent = note;
+    checkStatus();
+  }
+  function loadSavedSerial(){
+    try{ return JSON.parse(localStorage.getItem(SERIAL_STATE_KEY) || 'null'); }catch(e){ return null; }
+  }
+  function saveSerial(data){
+    try{
+      if(data) localStorage.setItem(SERIAL_STATE_KEY, JSON.stringify(data));
+      else localStorage.removeItem(SERIAL_STATE_KEY);
+    }catch(e){}
+  }
+  function checkSerial(serial, silent){
+    return fetch(PEXELS_LICENSE_URL, {method:'POST', body: JSON.stringify({serial})})
+      .then(r => r.json())
+      .then(data => {
+        if(data && data.valid){
+          currentSerial = serial;
+          saveSerial({serial, expiresAt: data.expiresAt});
+          const days = Math.max(0, Math.ceil((new Date(data.expiresAt) - new Date()) / 86400000));
+          setUnlocked(true, '✓ 已解鎖，剩餘 ' + days + ' 天可用');
+        }else{
+          currentSerial = '';
+          saveSerial(null);
+          setUnlocked(false, reasonText(data && data.reason));
+        }
+      })
+      .catch(() => { currentSerial = ''; setUnlocked(false, silent ? $('pexelsSerialMsg').textContent : '連線失敗，請稍後再試'); });
+  }
+
+  $('btnPexelsSerial').addEventListener('click', () => {
+    const serial = $('pexelsSerial').value.trim();
+    if(!serial){ $('pexelsSerialMsg').textContent = '請輸入序號'; return; }
+    $('pexelsSerialMsg').textContent = '驗證中...';
+    checkSerial(serial, false);
+  });
+
+  const saved = loadSavedSerial();
+  if(saved && saved.serial){
+    $('pexelsSerial').value = saved.serial;
+    checkSerial(saved.serial, true);
+  }else{
+    setUnlocked(false, '');
+  }
+  setInterval(() => { if(currentSerial) checkSerial(currentSerial, true); }, REVALIDATE_MS);
+})();
+
 // ---------- Pexels 金鑰 ----------
 function localKey(){ return (localStorage.getItem('avsWeb_pexelsKey')||'').trim(); }
 $('pexelsKey').value = localKey();
 $('btnSaveKey').addEventListener('click', ()=>{
+  if($('pexelsKey').disabled) return;
   localStorage.setItem('avsWeb_pexelsKey', $('pexelsKey').value.trim());
   checkStatus();
   alert('已儲存（只存在本機瀏覽器）。');
@@ -701,7 +771,10 @@ renderTtsUrlBanner();
 // ---------- 系統狀態 ----------
 function checkStatus(){
   let html = '';
-  if(!localKey()){
+  if($('pexelsKey').disabled){
+    html += '<div class="banner">🔒 搜尋影片前請先在「02 選片」輸入<b>課程授權序號</b>解鎖 Pexels 金鑰欄位。</div>';
+    $('keyPanel').open = true;
+  }else if(!localKey()){
     html += '<div class="banner">尚未設定 <b>Pexels API 金鑰</b>（搜尋影片需要）。到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請後，填入「02 選片」的 🔑 金鑰欄位。</div>';
     $('keyPanel').open = true;
   }
