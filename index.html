@@ -328,13 +328,15 @@ body.has-marquee{padding-top:32px}
     <details id="keyPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
       <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels API 金鑰（需序號解鎖）</summary>
       <div class="row" style="margin-top:10px">
-        <input type="text" id="pexelsSerial" style="width:100%;max-width:200px" placeholder="課程授權序號" aria-label="課程授權序號">
+        <input type="password" id="pexelsSerial" style="width:100%;max-width:200px" placeholder="課程授權序號" aria-label="課程授權序號">
+        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏序號" aria-label="顯示／隱藏序號">👁</button>
         <button id="btnPexelsSerial">確認</button>
         <span class="tc" id="pexelsSerialMsg"></span>
       </div>
       <p class="hint">可以使用序號 <b>Aa1223456789</b> 登入，有效期到 2026/12/31。序號驗證通過後才能填入並儲存 Pexels 金鑰。</p>
       <div class="row" style="margin-top:10px">
         <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰" disabled>
+        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
         <button id="btnSaveKey" disabled>儲存</button>
       </div>
       <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
