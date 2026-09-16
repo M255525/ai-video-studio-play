@@ -20,6 +20,19 @@
   --rec:#E4574C; --ok:#6FBF8B;
   --mono:"Cascadia Mono",Consolas,monospace;
 }
+/* ---------- 底色主題：預設「工作室灰」不變，另提供「深藍片場」（深色）與「象牙白」（淺色）兩種替代底色 ----------
+   淺色主題把文字／狀態色全部加深，確保對比度足夠、不會因為底色變淺而看不清楚文字。 */
+:root[data-theme="indigo"]{
+  --bg:#0e1220; --panel:#161b30; --panel2:#1d2440; --line:#2b3358;
+  --text:#e7e9f7; --muted:#9aa0c6;
+  --amber:#8b93f5; --amber-dim:#4c5390;
+}
+:root[data-theme="light"]{
+  --bg:#faf9f6; --panel:#ffffff; --panel2:#f2efe9; --line:#e0dcd3;
+  --text:#221f1a; --muted:#6b655b;
+  --amber:#b45309; --amber-dim:#d9b98c;
+  --rec:#dc2626; --ok:#15803d;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 body{
   background:var(--bg);color:var(--text);
@@ -32,7 +45,16 @@ header{
 }
 header h1{font-size:20px;font-weight:700;letter-spacing:.05em}
 header .sub{color:var(--muted);font-size:13px}
-header .right{margin-left:auto;display:flex;gap:8px}
+header .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ---- 底色切換小工具（header 右側，圓點各自預覽該主題的底色＋主色） ---- */
+.theme-switch{display:flex;align-items:center;gap:7px;padding:4px 6px;border:1px solid var(--line);border-radius:20px;background:var(--panel2);}
+.theme-dot{width:20px;height:20px;border-radius:50%;border:2px solid transparent;padding:0;cursor:pointer;transition:.15s;flex:none;}
+.theme-dot[data-theme-value="dark"]{background:linear-gradient(135deg,#16181D 50%,#E8A33D 50%);}
+.theme-dot[data-theme-value="indigo"]{background:linear-gradient(135deg,#0e1220 50%,#8b93f5 50%);}
+.theme-dot[data-theme-value="light"]{background:linear-gradient(135deg,#faf9f6 50%,#b45309 50%);border-color:var(--line);}
+.theme-dot:hover{transform:scale(1.15);}
+.theme-dot.active{border-color:var(--text);box-shadow:0 0 0 2px var(--panel2),0 0 0 4px var(--amber);}
 main{max-width:980px;margin:0 auto;padding:24px 20px 80px}
 
 .stage{
@@ -134,6 +156,15 @@ audio{width:100%;margin-top:6px}
 body.has-marquee{padding-top:32px}
 @keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 </style>
+<script>
+  // 先於畫面渲染前套用已儲存的底色主題，避免翻頁瞬間先閃預設灰色再跳成使用者選的主題
+  (function () {
+    try {
+      var t = localStorage.getItem('avsWebBgTheme');
+      if (t === 'indigo' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
 </head>
 <body>
 
@@ -266,11 +297,50 @@ body.has-marquee{padding-top:32px}
   <h1>AI 影音工坊</h1>
   <span class="sub">純瀏覽器版 · 打開網頁即可用，無需下載安裝</span>
   <div class="right">
+    <div class="theme-switch" id="themeSwitch" role="group" aria-label="切換頁面底色">
+      <button type="button" class="theme-dot" data-theme-value="dark" title="工作室灰（預設）" aria-label="切換為工作室灰（預設）底色"></button>
+      <button type="button" class="theme-dot" data-theme-value="indigo" title="深藍片場" aria-label="切換為深藍片場底色"></button>
+      <button type="button" class="theme-dot" data-theme-value="light" title="象牙白（淺色）" aria-label="切換為象牙白淺色底色"></button>
+    </div>
     <button id="installBtn" title="加入主畫面，像 App 一樣開啟">📲 加入主畫面</button>
     <a href="manual.html" target="_blank"><button title="開啟操作手冊">📖 操作手冊</button></a>
     <button id="btnReset" title="清空目前專案">新專案</button>
   </div>
 </header>
+<script>
+/* 底色主題切換 — 獨立運作，跟下方主程式邏輯無關；放在 header 之後才能抓到 #themeSwitch */
+(function () {
+  'use strict';
+  var STORAGE_KEY = 'avsWebBgTheme';
+  var VALID = ['dark', 'indigo', 'light'];
+  var wrap = document.getElementById('themeSwitch');
+  if (!wrap) return;
+  var dots = Array.prototype.slice.call(wrap.querySelectorAll('.theme-dot'));
+
+  function markActive(theme) {
+    dots.forEach(function (d) {
+      d.classList.toggle('active', d.getAttribute('data-theme-value') === theme);
+    });
+  }
+  function applyTheme(theme) {
+    if (theme === 'dark') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    markActive(theme);
+  }
+  function setTheme(theme) {
+    if (VALID.indexOf(theme) === -1) theme = 'dark';
+    try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
+    applyTheme(theme);
+  }
+
+  dots.forEach(function (d) {
+    d.addEventListener('click', function () { setTheme(d.getAttribute('data-theme-value')); });
+  });
+
+  var current = document.documentElement.getAttribute('data-theme');
+  markActive(VALID.indexOf(current) > -1 ? current : 'dark');
+})();
+</script>
 <main>
 
 <div id="sysBanner"></div>

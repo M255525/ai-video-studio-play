@@ -108,6 +108,12 @@
 - `updateWmStatus()`（掛在既有的序號驗證 IIFE 內，`setUnlocked()` 每次都會呼叫）只是**樂觀提示文字**，讓使用者在按下合成前就知道大概狀態；真正決定要不要燒浮水印一律以 `runCompose()` 裡那次即時驗證為準，兩者刻意分開，不會互相影響。
 - 已用 Playwright 端對端驗證：`avsWebRefreshWatermarkStatus()` 對無序號／已知測試序號 `mark0131`／亂打的無效序號分別正確回傳 `false`／`true`／`false`；直接呼叫 `drawWatermark()` 對同一張測試 canvas 做像素加總比對，`avsWebWatermarkOff=false` 時像素總和有明顯變化（浮水印確實畫上去）、`=true` 時像素總和與空白畫布完全相同（完全沒畫）；輸入 `mark0131` 並點擊「確認」後 `#wmStatus` 正確變成「✓ 已偵測到有效的課程授權序號...」。測試後已清空 `localStorage`。
 
+## 底色主題切換（2026-09-16 新增，與 `../index.html`／`../AIvideo_studio/index.html` 同一天套用）
+
+header 右側三顆圓點（`#themeSwitch`）切換整站底色：工作室灰（預設）／深藍片場／象牙白（淺色）。做法與變數集合逐字比照 `../index.html`（CSS 變數覆寫、`localStorage` key 改成 `avsWebBgTheme`、`</style>` 後的先行 `<script>` 避免 FOUC）。**這裡是獨立複製的檔案，不是共用檔案**，`../index.html` 之後若調整主題色票要記得手動同步過來。
+
+負責點擊切換的 `<script>` 放在 `</header>` 之後（緊接在 header 標籤關閉後、`<main>` 之前）——這份檔案本來就有一個同類型的踩坑教訓（見上方「引導使用者申請專屬 Cloudflare 代理」一節：`workerSourceCode` 的 `text/plain` script 標籤一度放錯位置導致 `getElementById` 抓 `null`），這次一開始就把 `<script>` 放對位置，沒有重踩。已用 Playwright 對純靜態 `http.server` 驗證：三種主題切換、`localStorage` 正確寫入、圓點 active 狀態互斥；未特別測試主題切換與「🔓 序號驗證通過就移除浮水印」「📁 我的影片庫」等既有功能的互動，兩者邏輯完全獨立（純 CSS 變數覆寫，不動任何既有 state），理論上不會互相影響。
+
 ## 頂部跑馬燈（2026-08-20 更新，與 `../index.html`／`../AIvideo_studio/index.html` 同一次改動，`Code.gs` 未改動、不需重新部署）
 
 跟其他兩份原型檔案的跑馬燈邏輯完全同構（`render()` 內的 `bar`/`track` 變數名稱一致）：
