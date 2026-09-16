@@ -98,6 +98,16 @@
 
 **同日補一個踩坑修正：金鑰的「使用」也要看序號當下狀態，不是存過一次就永久生效**——原本 `searchOnce()` 直接呼叫 `localKey()` 從 `localStorage` 讀金鑰，跟 `#pexelsKey` 的 `disabled` 狀態完全脫鉤；序號到期後金鑰值仍留在 `localStorage` 裡，若沒改這裡，每次搜尋依然會偷偷拿這組已經「過期」的金鑰去打 Pexels API，等於序號到期形同虛設。修法：`searchOnce()` 一開始先檢查 `$('pexelsKey').disabled`，鎖著就直接 `throw new Error('請先在「02 選片」輸入課程授權序號解鎖 Pexels 金鑰')`（跟原本「未設定金鑰」的錯誤走同一條 `searchClips()` 的 catch 顯示邏輯，會秀在該段落的「搜尋失敗：...」提示裡）——**這裡跟主版不同，因為這個純瀏覽器版沒有伺服器內建金鑰可以退回，鎖著就是真的搜尋不了，是刻意的行為**。已用 `javascript_tool` 直接呼叫 `searchOnce()` 驗證：預先寫入一把金鑰但不寫入有效序號快取（維持鎖定狀態），呼叫會正確拋出上述錯誤而非拿舊金鑰去打 API。
 
+## 🔓 序號驗證通過就移除浮水印（2026-09-16 新增）
+
+比照 `video-editor/mrvideo_s`（2026-08-19 已有的「浮水印與課程授權序號掛鉤」設計）補上同一個行為：這個純瀏覽器版原本浮水印是**固定燒錄、無法關閉**（見上方「架構總覽」），使用者要求改成「只要有登入序號就不要加浮水印」。做法與 mrvideo_s 一致——**每次真正按下「合成影片」都重新即時打一次驗證，不信任本機快取或畫面上目前顯示的解鎖狀態**：
+
+- `window.avsWebRefreshWatermarkStatus()`：取目前 `#pexelsSerial` 輸入框的值（沒填就退回已知有效的 `currentSerial`），POST 給既有的 `PEXELS_LICENSE_URL`（跟 Pexels 金鑰解鎖同一支端點／同一份 Sheet，沒有新建或修改 `Code.gs`），回傳 `Promise<boolean>`；沒有任何序號、或連線失敗都視為 `false`（fail-closed，維持有浮水印，不會因為驗證失敗誤放行）。
+- `runCompose()` 一開始（`pickMime()` 檢查通過後）就先呼叫這個函式拿到 `watermarkCheckPromise`（不立刻 await，跟後面 `loadWatermarkImage()`／`primeEncoder()`／素材準備同時進行，減少感受到的等待），到真正建立 `MediaRecorder` 之前才 `await` 結果寫入全域旗標 `avsWebWatermarkOff`，並更新新增的 `#wmStatus` 提示文字（放在「04 合成」`#composeHint` 下方，顯示目前是否驗證通過／本次輸出含不含浮水印）。
+- `drawWatermark()` 開頭加一行 `if(avsWebWatermarkOff) return;`——快速匯出／即時錄製本來就共用同一個 `draw()` 迴圈畫同一份 canvas，不需要分別處理。
+- `updateWmStatus()`（掛在既有的序號驗證 IIFE 內，`setUnlocked()` 每次都會呼叫）只是**樂觀提示文字**，讓使用者在按下合成前就知道大概狀態；真正決定要不要燒浮水印一律以 `runCompose()` 裡那次即時驗證為準，兩者刻意分開，不會互相影響。
+- 已用 Playwright 端對端驗證：`avsWebRefreshWatermarkStatus()` 對無序號／已知測試序號 `mark0131`／亂打的無效序號分別正確回傳 `false`／`true`／`false`；直接呼叫 `drawWatermark()` 對同一張測試 canvas 做像素加總比對，`avsWebWatermarkOff=false` 時像素總和有明顯變化（浮水印確實畫上去）、`=true` 時像素總和與空白畫布完全相同（完全沒畫）；輸入 `mark0131` 並點擊「確認」後 `#wmStatus` 正確變成「✓ 已偵測到有效的課程授權序號...」。測試後已清空 `localStorage`。
+
 ## 頂部跑馬燈（2026-08-20 更新，與 `../index.html`／`../AIvideo_studio/index.html` 同一次改動，`Code.gs` 未改動、不需重新部署）
 
 跟其他兩份原型檔案的跑馬燈邏輯完全同構（`render()` 內的 `bar`/`track` 變數名稱一致）：

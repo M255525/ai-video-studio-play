@@ -426,6 +426,7 @@ body.has-marquee{padding-top:32px}
       <span class="tc" id="totalDur"></span>
     </div>
     <p class="hint" id="composeHint"></p>
+    <p class="hint" id="wmStatus"></p>
     <div class="progress" id="cpBarWrap" style="display:none"><div id="cpBar"></div></div>
     <p class="jobmsg" id="cpMsg"></p>
     <div id="composeCanvasWrap" style="display:none">
@@ -699,6 +700,16 @@ function pickStateText(clip){
     $('btnSaveKey').disabled = !unlocked;
     if(note != null) $('pexelsSerialMsg').textContent = note;
     checkStatus();
+    updateWmStatus();
+  }
+  // 只是「目前看起來」有沒有序號的提示文字（給合成前參考），真正決定要不要燒浮水印
+  // 一律以 runCompose() 裡即時重新驗證的結果為準，這裡不直接信任 currentSerial。
+  function updateWmStatus(){
+    const el = document.getElementById('wmStatus');
+    if(!el) return;
+    el.textContent = currentSerial
+      ? '✓ 已偵測到有效的課程授權序號，合成時會重新確認一次，通過即不含浮水印。'
+      : '🔒 目前輸出的影片會有浮水印；輸入並驗證上方「課程授權序號」後即可移除。';
   }
   function loadSavedSerial(){
     try{ return JSON.parse(localStorage.getItem(SERIAL_STATE_KEY) || 'null'); }catch(e){ return null; }
@@ -728,6 +739,19 @@ function pickStateText(clip){
       })
       .catch(() => { if(!optimistic){ currentSerial = ''; setUnlocked(false, '連線失敗，請稍後再試'); } });
   }
+
+  // 供 runCompose() 在每次真正合成影片前呼叫：即時重新打一次驗證，不信任本機快取／
+  // 先前的樂觀解鎖畫面，避免序號已過期卻因為畫面還顯示解鎖狀態而生成免浮水印的影片
+  // （比照 video-editor/mrvideo_s 的浮水印驗證設計：每次匯出前都重新驗證，不做本機信任）。
+  // 連線失敗或沒有任何序號都視為「維持有浮水印」（fail-closed），不會因為驗證失敗而誤放行。
+  window.avsWebRefreshWatermarkStatus = function(){
+    const serial = (($('pexelsSerial').value || '').trim()) || currentSerial;
+    if(!serial) return Promise.resolve(false);
+    return fetch(PEXELS_LICENSE_URL, {method:'POST', body: JSON.stringify({serial})})
+      .then(r => r.json())
+      .then(data => !!(data && data.valid))
+      .catch(() => false);
+  };
 
   $('btnPexelsSerial').addEventListener('click', () => {
     const serial = $('pexelsSerial').value.trim();
@@ -1338,7 +1362,9 @@ function loadWatermarkImage(){
   }
   return watermarkImgPromise;
 }
+let avsWebWatermarkOff = false;
 function drawWatermark(ctx, W, H, portrait){
+  if(avsWebWatermarkOff) return;
   if(!watermarkImg) return;
   const targetH = portrait ? 70 : 90;
   const targetW = targetH * (watermarkImg.width / watermarkImg.height);
@@ -1474,6 +1500,12 @@ async function runCompose(){
   const mime = pickMime();
   if(!mime){ alert('這個瀏覽器不支援即時錄製，請改用 Chrome 或 Edge'); return; }
 
+  // 每次真正合成前都重新即時驗證一次課程授權序號（不信任本機快取或畫面上目前顯示的
+  // 解鎖狀態），避免序號已過期卻因為畫面還停在先前的樂觀解鎖狀態而生成免浮水印的影片。
+  // 這裡先發出去、稍後在真正開始錄製前才 await 結果，跟後面準備編碼器／素材同時進行，
+  // 不會額外拖慢太多（Apps Script 偶爾要等幾秒才回應屬正常現象）。
+  const watermarkCheckPromise = window.avsWebRefreshWatermarkStatus();
+
   await loadWatermarkImage(); // 確保浮水印圖檔已就緒（多半在頁面載入時就已完成，這裡是保險）
 
   // 跟第一段素材的網路下載/緩衝同時在背景「預熱」視訊編碼器（見 primeEncoder 說明），
@@ -1518,6 +1550,11 @@ async function runCompose(){
   }
   const isMp4 = isMp4Mime(mime);
   const ext = isMp4 ? 'mp4' : 'webm';
+
+  avsWebWatermarkOff = await watermarkCheckPromise;
+  $('wmStatus').textContent = avsWebWatermarkOff
+    ? '✓ 已驗證課程授權序號，本次輸出不含浮水印。'
+    : '🔒 本次輸出的影片含浮水印。';
 
   $('btnCompose').disabled = true;
   $('cpBarWrap').style.display = 'block';
