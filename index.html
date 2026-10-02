@@ -154,6 +154,7 @@ audio{width:100%;margin-top:6px}
 #marqueeBar.show{display:flex}
 #marqueeTrack{display:inline-block;white-space:nowrap;padding-left:100%;font-size:13px;font-weight:600;color:var(--amber);animation:marquee-scroll 30s linear infinite}
 body.has-marquee{padding-top:32px}
+#marqueeBar:hover #marqueeTrack{animation-play-state:paused}
 @keyframes marquee-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 </style>
 <script>
