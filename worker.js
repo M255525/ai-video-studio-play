@@ -33,10 +33,12 @@ async function synthesize(text, voice, rate) {
   const connId = connectId();
   // 注意：這裡用 https:// 不是 wss://——Cloudflare Workers 的 fetch() 靠 Upgrade header
   // 觸發 WebSocket 升級，直接寫 wss:// 反而會被拒絕（wrangler dev 本機測試時已驗證過這點）。
+  // 2026-10 起舊主機 speech.platform.bing.com 一律回 403，Edge 改走 api.msedgeservices.com，
+  // 同一組 token 改用 Ocp-Apim-Subscription-Key 參數帶入（見 rany2/edge-tts PR #491）。
   const url =
-    'https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1' +
-    `?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}&ConnectionId=${connId}` +
-    `&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=1-135.0.3179.54`;
+    'https://api.msedgeservices.com/tts/cognitiveservices/websocket/v1' +
+    `?Ocp-Apim-Subscription-Key=${TRUSTED_CLIENT_TOKEN}&ConnectionId=${connId}` +
+    `&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=1-143.0.3650.75`;
 
   const resp = await fetch(url, {
     headers: {
@@ -152,7 +154,15 @@ export default {
           headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
         });
       }
-      const audio = await synthesize(text, voice, rate);
+      let audio;
+      try {
+        audio = await synthesize(text, voice, rate);
+      } catch (e) {
+        // 新端點對短時間內連續請求會回 429（逐段配音時最容易遇到），等一下重試一次
+        if (!/status=429/.test(String(e.message))) throw e;
+        await new Promise((r) => setTimeout(r, 1500));
+        audio = await synthesize(text, voice, rate);
+      }
       return new Response(audio, {
         headers: { ...CORS_HEADERS, 'Content-Type': 'audio/mpeg', 'Content-Length': String(audio.length) },
       });
