@@ -125,6 +125,10 @@ label.opt{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:va
   position:absolute;right:4px;bottom:4px;background:rgba(0,0,0,.75);
   font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;color:#fff;
 }
+.thumb .src{
+  position:absolute;left:4px;top:4px;background:rgba(0,0,0,.75);
+  font-size:10.5px;padding:1px 5px;border-radius:4px;color:#fff;
+}
 .thumb .picked{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(232,163,61,.25);color:#fff;font-weight:700;font-size:13px;
@@ -395,22 +399,35 @@ body.has-marquee{padding-top:32px}
           <option value="portrait">直式 9:16（Shorts / Reels）</option>
         </select>
       </label>
+      <label class="opt">影片來源
+        <select id="videoSource" style="width:auto">
+          <option value="pexels">Pexels</option>
+          <option value="pixabay">Pixabay</option>
+          <option value="both">Pexels＋Pixabay</option>
+        </select>
+      </label>
     </div>
     <details id="keyPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
-      <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels API 金鑰（需序號解鎖）</summary>
+      <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels／Pixabay API 金鑰（需序號解鎖）</summary>
       <div class="row" style="margin-top:10px">
         <input type="password" id="pexelsSerial" style="width:100%;max-width:200px" placeholder="課程授權序號" aria-label="課程授權序號">
         <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏序號" aria-label="顯示／隱藏序號">👁</button>
         <button id="btnPexelsSerial">確認</button>
         <span class="tc" id="pexelsSerialMsg"></span>
       </div>
-      <p class="hint">可以使用序號 <b>Aa1223456789</b> 登入，有效期到 2026/12/31。序號驗證通過後才能填入並儲存 Pexels 金鑰。</p>
+      <p class="hint">可以使用序號 <b>Aa1223456789</b> 登入，有效期到 2026/12/31。序號驗證通過後才能填入並儲存 Pexels／Pixabay 金鑰。</p>
       <div class="row" style="margin-top:10px">
         <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰" disabled>
         <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
         <button id="btnSaveKey" disabled>儲存</button>
       </div>
       <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="pixabayKey" style="width:100%;max-width:320px" placeholder="Pixabay API 金鑰（只存在你的瀏覽器）" aria-label="Pixabay API 金鑰" disabled>
+        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
+        <button id="btnSavePixabayKey" disabled>儲存</button>
+      </div>
+      <p class="hint">選用：到 <a href="https://pixabay.com/api/docs/" target="_blank" style="color:var(--amber)">pixabay.com/api/docs</a> 登入後免費取得金鑰（頁面中「key」參數那一串），填好後在上方「影片來源」選 Pixabay 或 Pexels＋Pixabay。同樣直接從瀏覽器打給 Pixabay。</p>
     </details>
     <details id="myClipsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
       <summary style="cursor:pointer;color:var(--muted)">📁 我的影片庫（上傳自己的影片素材）</summary>
@@ -511,7 +528,7 @@ body.has-marquee{padding-top:32px}
 <footer style="max-width:980px;margin:0 auto;padding:0 20px 40px;color:var(--muted);font-size:12.5px;line-height:1.8">
   <p>⚠ 語音採線上制式聲音，非真人聲音克隆。合成完全在瀏覽器內完成，輸出格式依瀏覽器支援自動選擇（優先 .mp4，不支援時退回 .webm）。</p>
   <p>⚠ 使用限制：影片素材來自
-    <a href="https://www.pexels.com" target="_blank" style="color:var(--muted)">Pexels</a>，依 Pexels 授權條款可免費使用（禁止原封不動轉售素材本身）；若改用「我的影片庫」上傳自己的影片、或上傳配樂音樂，請確保自己擁有該素材的合法使用權利，本工具不負責使用者上傳內容的授權爭議。</p>
+    <a href="https://www.pexels.com" target="_blank" style="color:var(--muted)">Pexels</a>／<a href="https://pixabay.com" target="_blank" style="color:var(--muted)">Pixabay</a>，依各自授權條款可免費使用（禁止原封不動轉售素材本身）；若改用「我的影片庫」上傳自己的影片、或上傳配樂音樂，請確保自己擁有該素材的合法使用權利，本工具不負責使用者上傳內容的授權爭議。</p>
   <p>⚠ 本工具僅供個人教學、課程及個人使用，禁止未經授權公開發布、販售或商業化使用。</p>
   <p><a href="manual.html" target="_blank" style="color:var(--amber)">📖 操作手冊</a></p>
   <p style="margin-top:10px">AI 影音工坊（純瀏覽器版） · 創作者 Mark Tsai（蔡豐全） · <a href="mailto:tsaimark@gmail.com" style="color:var(--muted)">tsaimark@gmail.com</a></p>
@@ -727,7 +744,7 @@ function save(){ localStorage.setItem('avsWeb_state', JSON.stringify({
   script: $('script').value,
   segments: state.segments.map(s => ({ text: s.text, keyword: s.keyword, clip: s.clip, candidates: s.candidates })),
   voice: state.voice, rate: $('rate').value,
-  orientation: $('orientation').value, subtitles: $('subtitles').checked,
+  orientation: $('orientation').value, videoSource: $('videoSource').value, subtitles: $('subtitles').checked,
   musicVolume: $('musicVolume').value,
 })); }
 function load(){
@@ -739,6 +756,7 @@ function load(){
     state.voice = s.voice||null;
     if(s.rate) $('rate').value = s.rate;
     $('orientation').value = s.orientation||'landscape';
+    $('videoSource').value = s.videoSource||'pexels';
     $('subtitles').checked = s.subtitles!==false;
     if(s.musicVolume) $('musicVolume').value = s.musicVolume;
   }catch(e){}
@@ -786,6 +804,8 @@ function pickStateText(clip){
   function setUnlocked(unlocked, note){
     $('pexelsKey').disabled = !unlocked;
     $('btnSaveKey').disabled = !unlocked;
+    $('pixabayKey').disabled = !unlocked;
+    $('btnSavePixabayKey').disabled = !unlocked;
     if(note != null) $('pexelsSerialMsg').textContent = note;
     checkStatus();
     updateWmStatus();
@@ -877,6 +897,16 @@ $('btnSaveKey').addEventListener('click', ()=>{
   alert('已儲存（只存在本機瀏覽器）。');
 });
 
+// ---------- Pixabay 金鑰（同一個序號閘門） ----------
+function localPixabayKey(){ return (localStorage.getItem('avsWeb_pixabayKey')||'').trim(); }
+$('pixabayKey').value = localPixabayKey();
+$('btnSavePixabayKey').addEventListener('click', ()=>{
+  if($('pixabayKey').disabled) return;
+  localStorage.setItem('avsWeb_pixabayKey', $('pixabayKey').value.trim());
+  checkStatus();
+  alert('已儲存（只存在本機瀏覽器）。');
+});
+
 // ---------- TTS 代理網址 ----------
 function ttsWorkerUrl(){ return (localStorage.getItem('avsWeb_ttsWorkerUrl')||DEFAULT_TTS_WORKER_URL).trim(); }
 $('ttsWorkerUrl').value = ttsWorkerUrl();
@@ -899,7 +929,7 @@ function checkStatus(){
   if($('pexelsKey').disabled){
     html += '<div class="banner">🔒 搜尋影片前請先在「02 選片」輸入<b>課程授權序號</b>解鎖 Pexels 金鑰欄位。</div>';
     $('keyPanel').open = true;
-  }else if(!localKey()){
+  }else if(!localKey() && !localPixabayKey()){
     html += '<div class="banner">尚未設定 <b>Pexels API 金鑰</b>（搜尋影片需要）。到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請後，填入「02 選片」的 🔑 金鑰欄位。</div>';
     $('keyPanel').open = true;
   }
@@ -965,7 +995,7 @@ function parseScript(){
 }
 $('btnParse').addEventListener('click', ()=>{ if(parseScript()) openStage(2); });
 
-// ---------- 2 選片（直接呼叫 Pexels，瀏覽器端完成） ----------
+// ---------- 2 選片（直接呼叫 Pexels／Pixabay，瀏覽器端完成） ----------
 function renderPicker(){
   const box = $('pickList');
   box.innerHTML = '';
@@ -995,6 +1025,7 @@ function renderGrid(i){
   g.innerHTML = seg.candidates.map((v,j)=>`
     <div class="thumb${seg.clip && seg.clip.id===v.id?' selected':''}" data-pick="${i}:${j}" title="作者：${esc(v.author)}">
       <img src="${v.thumbnail}" alt="影片候選 ${j+1}" loading="lazy">
+      ${v.source==='pixabay'?'<span class="src">Pixabay</span>':(v.source==='pexels' && $('videoSource').value==='both'?'<span class="src">Pexels</span>':'')}
       <span class="dur">${v.duration}s</span>
       ${seg.clip && seg.clip.id===v.id?'<span class="picked">✓ 已選用</span>':''}
     </div>`).join('');
@@ -1013,12 +1044,50 @@ function simplifyVideo(v, orientation){
   files.sort((a,b)=>score(b)-score(a));
   const best = files[0];
   return {
-    id: v.id, duration: v.duration, width: v.width, height: v.height,
+    id: v.id, source: 'pexels', duration: v.duration, width: v.width, height: v.height,
     thumbnail: v.image, author: (v.user||{}).name||'', url: v.url,
     file: best ? { link: best.link, width: best.width, height: best.height } : null,
   };
 }
+// Pixabay hit → 與 simplifyVideo() 相同的欄位格式；id 加 pixabay_ 前綴避免與 Pexels id 撞號
+function simplifyPixabay(h){
+  const sizes = h.videos || {};
+  const best = ['large','medium','small'].map(k=>sizes[k]).find(f=>f && f.url);
+  const thumbSrc = ['medium','large','small','tiny'].map(k=>sizes[k]).find(f=>f && f.thumbnail);
+  return {
+    id: 'pixabay_'+h.id, source: 'pixabay', duration: h.duration,
+    width: best ? best.width : 0, height: best ? best.height : 0,
+    thumbnail: thumbSrc ? thumbSrc.thumbnail : '', author: h.user||'', url: h.pageURL,
+    file: best ? { link: best.url, width: best.width, height: best.height } : null,
+  };
+}
+async function searchPixabay(query, orientation){
+  if($('pixabayKey').disabled) throw new Error('請先在「02 選片」輸入課程授權序號解鎖 Pixabay 金鑰');
+  const key = localPixabayKey();
+  if(!key) throw new Error('未設定 Pixabay API 金鑰');
+  // Pixabay 影片 API 沒有方向參數：多抓一些回來，再依寬高自行過濾方向
+  const filtered = orientation==='landscape'||orientation==='portrait';
+  const params = new URLSearchParams({ key, q: query.slice(0,100), per_page: filtered?'50':'12', page: '1', safesearch: 'true' });
+  const r = await fetch(`https://pixabay.com/api/videos/?${params}`);
+  if(!r.ok) throw new Error('Pixabay 查詢失敗（'+r.status+(r.status===400?'，請確認金鑰是否正確':'')+'）');
+  const data = await r.json();
+  let vids = (data.hits||[]).map(simplifyPixabay).filter(v=>v.file);
+  if(filtered) vids = vids.filter(v=>(v.height>v.width)===(orientation==='portrait'));
+  return vids.slice(0,12);
+}
 async function searchOnce(query, orientation){
+  const source = $('videoSource').value;
+  if(source==='pixabay') return searchPixabay(query, orientation);
+  if(source!=='both') return searchPexels(query, orientation);
+  // 兩個影庫都搜：任一邊失敗（例如沒填 Pixabay 金鑰）仍回傳另一邊的結果，兩邊都失敗才報錯
+  const results = await Promise.allSettled([searchPexels(query, orientation), searchPixabay(query, orientation)]);
+  const ok = results.filter(x=>x.status==='fulfilled').map(x=>x.value);
+  if(!ok.length) throw results[0].reason;
+  const merged = [];
+  for(let k=0; k<Math.max(...ok.map(l=>l.length)); k++) ok.forEach(l=>{ if(l[k]) merged.push(l[k]); });  // 交錯排列
+  return merged.slice(0,12);
+}
+async function searchPexels(query, orientation){
   // 序號目前沒解鎖（含已過期）就視為沒有金鑰可用——存在 localStorage 的金鑰本身不變，
   // 但只有序號驗證「當下」有效才會真的被拿來用，不是存過一次就永久生效
   if($('pexelsKey').disabled) throw new Error('請先在「02 選片」輸入課程授權序號解鎖 Pexels 金鑰');
@@ -1063,7 +1132,7 @@ function pickClip(i,j){
   const seg = state.segments[i];
   const v = seg.candidates[j];
   if(!v.file){ alert('這部影片沒有可用的檔案'); return; }
-  seg.clip = { source:'pexels', url: v.file.link, id: v.id, thumb: v.thumbnail, duration: v.duration, width: v.file.width, height: v.file.height };
+  seg.clip = { source: v.source||'pexels', url: v.file.link, id: v.id, thumb: v.thumbnail, duration: v.duration, width: v.file.width, height: v.file.height };
   $('pickState'+i).textContent = pickStateText(seg.clip);
   renderGrid(i); showClipPreview(i); refreshStatus(); save();
 }
@@ -1312,6 +1381,7 @@ $('pickList').addEventListener('change', e=>{
   if(e.target.dataset.kw!=null){ state.segments[+e.target.dataset.kw].keyword = e.target.value; save(); }
 });
 $('orientation').addEventListener('change', save);
+$('videoSource').addEventListener('change', save);
 
 // ---------- 3 配音（透過 TTS 代理 Worker） ----------
 function estTTS(){

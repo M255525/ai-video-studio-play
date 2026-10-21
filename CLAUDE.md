@@ -98,6 +98,10 @@
 
 **同日補一個踩坑修正：金鑰的「使用」也要看序號當下狀態，不是存過一次就永久生效**——原本 `searchOnce()` 直接呼叫 `localKey()` 從 `localStorage` 讀金鑰，跟 `#pexelsKey` 的 `disabled` 狀態完全脫鉤；序號到期後金鑰值仍留在 `localStorage` 裡，若沒改這裡，每次搜尋依然會偷偷拿這組已經「過期」的金鑰去打 Pexels API，等於序號到期形同虛設。修法：`searchOnce()` 一開始先檢查 `$('pexelsKey').disabled`，鎖著就直接 `throw new Error('請先在「02 選片」輸入課程授權序號解鎖 Pexels 金鑰')`（跟原本「未設定金鑰」的錯誤走同一條 `searchClips()` 的 catch 顯示邏輯，會秀在該段落的「搜尋失敗：...」提示裡）——**這裡跟主版不同，因為這個純瀏覽器版沒有伺服器內建金鑰可以退回，鎖著就是真的搜尋不了，是刻意的行為**。已用 `javascript_tool` 直接呼叫 `searchOnce()` 驗證：預先寫入一把金鑰但不寫入有效序號快取（維持鎖定狀態），呼叫會正確拋出上述錯誤而非拿舊金鑰去打 API。
 
+## 🎞 Pixabay 影片來源（2026-10-21 新增，比照主版同日做法）
+
+「02 選片」畫面方向旁加 `#videoSource`（`pexels`／`pixabay`／`both`，存在 state 的 `videoSource`）。瀏覽器直連 `pixabay.com/api/videos/`——已用 curl 確認 API 與 `cdn.pixabay.com` 影片都回 `Access-Control-Allow-Origin: *`，且 Playwright 實測 Pixabay CDN 影片 `crossOrigin='anonymous'` 畫進 canvas 後 `getImageData` 不會被汙染，合成錄製可用。**金鑰比照 Pexels 走同一個序號閘門**：`#pixabayKey`／`#btnSavePixabayKey` 跟 `#pexelsKey` 一起由 `setUnlocked()` 開關，localStorage `avsWeb_pixabayKey`，`searchPixabay()` 欄位 disabled 時直接丟錯。原 `searchOnce()` 改名 `searchPexels()`，新 `searchOnce()` 依來源分派；`both` 用 `Promise.allSettled` 兩邊都搜、交錯合併，兩邊都失敗才丟第一個錯。Pixabay 沒有方向參數，抓 50 筆後依寬高過濾；`simplifyPixabay()` 的 `id` 為 `pixabay_<n>`、`source:'pixabay'`，`pickClip()` 把 `v.source` 帶進 `clip.source`（其他程式只比對 `'upload'`，所以 `'pixabay'` 會走跟 Pexels 相同的遠端網址＋crossOrigin 路徑）。系統橫幅「尚未設定金鑰」改成兩組金鑰都沒填才顯示。已用 Playwright（mock fetch）驗證四種情境＋縮圖來源標籤＋選片，真實 API 錯誤金鑰回「Pixabay 查詢失敗（400，請確認金鑰是否正確）」；**尚未用有效 Pixabay 金鑰實測**。
+
 ## 🔓 序號驗證通過就移除浮水印（2026-09-16 新增）
 
 比照 `video-editor/mrvideo_s`（2026-08-19 已有的「浮水印與課程授權序號掛鉤」設計）補上同一個行為：這個純瀏覽器版原本浮水印是**固定燒錄、無法關閉**（見上方「架構總覽」），使用者要求改成「只要有登入序號就不要加浮水印」。做法與 mrvideo_s 一致——**每次真正按下「合成影片」都重新即時打一次驗證，不信任本機快取或畫面上目前顯示的解鎖狀態**：
