@@ -147,4 +147,5 @@ header 右側三顆圓點（`#themeSwitch`）切換整站底色：工作室灰�
 - `DEFAULT_TTS_WORKER_URL` 改成使用者自有帳號的 `https://ai-voice-generator-tts.content-workflow.workers.dev`（`ai-voice-generator/web/worker.js` 部署的那一顆，請求格式 `{text, voice, rate}` 相容，CORS 為 `*`）。
 - 新增 `RETIRED_TTS_WORKER_URLS`：之前存過舊網址（localStorage `avsWeb_ttsWorkerUrl`）的使用者，載入時自動清掉、改回新預設值。已用 Playwright 驗證。
 - `worker.js` 與頁面內嵌的 `#workerSourceCode`（給使用者自建專屬代理用）同步改連 `api.msedgeservices.com`（token 改用 `Ocp-Apim-Subscription-Key` 參數，上游 rany2/edge-tts PR #491），遇 429 等 1.5 秒重試一次；兩份仍逐字相同。
+- **2026-10-28**：`worker.js` 整份換成 `ai-voice-generator/web/worker.js` 的修好版（Cloudflare 連 msedgeservices 失敗，改回舊主機＋v2 Sec-MS-GEC、新端點備援；另含 Google 備援與 429 重試），內嵌 `#workerSourceCode` 同步且逐字相同。之後兩份 `worker.js` 保持一致，改一邊就複製到另一邊。
 - `slides.html`／`build_pptx.js` 教學簡報裡寫的預填網址同步更新（`.pptx` 要重新跑 `build_pptx.js` 才會更新）。
