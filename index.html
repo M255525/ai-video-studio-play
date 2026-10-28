@@ -379,6 +379,10 @@ body.has-marquee{padding-top:32px}
           <option value="+15%">快</option>
         </select>
       </label>
+      <label class="opt" title="不生成口白，影片只有畫面（可搭配字幕與配樂）"><input type="checkbox" id="silentMode"> 🔇 靜音（不配音）</label>
+      <label class="opt" id="silentSecWrap" style="display:none">每段
+        <input type="number" id="silentSec" min="1" max="60" step="0.5" value="5" style="width:70px"> 秒
+      </label>
       <button class="primary" id="btnParse">建立段落</button>
     </div>
     <p class="hint" id="parseInfo"></p>
@@ -449,6 +453,9 @@ body.has-marquee{padding-top:32px}
     <span class="stage-status"><span class="dot idle" id="dot3"></span><span id="st3">等待腳本</span></span>
   </div>
   <div class="stage-body">
+    <div class="banner" id="silentBanner" style="display:none">🔇 靜音模式：不生成口白，每段長度依下方秒數決定（可逐段調整）。字幕與配樂仍可照常使用。</div>
+    <div id="silentList"></div>
+    <div id="ttsWrap">
     <div class="banner" id="ttsUrlBanner"></div>
     <details id="ttsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
       <summary style="cursor:pointer;color:var(--muted)">🔧 語音服務代理網址</summary>
@@ -483,6 +490,7 @@ body.has-marquee{padding-top:32px}
     <div class="progress" id="ttsBarWrap" style="display:none"><div id="ttsBar"></div></div>
     <p class="jobmsg" id="ttsMsg"></p>
     <div id="audioList"></div>
+    </div>
   </div>
 </section>
 
@@ -737,13 +745,16 @@ const state = {
   segments: [],   // {text, keyword, clip:{url,id,thumb,duration,width,height}, candidates:[], audio:{blobUrl,buffer,duration}}
   voice: null,
   music: null,    // {name, blobUrl} — 重新整理後要重新上傳，跟配音/合成結果一樣不持久
+  silent: false,  // 靜音模式：不配音，每段用 seg.silentSec（預設 silentSec）秒
+  silentSec: 5,
 };
+function segSec(s){ return +(s.silentSec || state.silentSec || 5); }
 
 // ---------- 存取（AudioBuffer/Blob 無法存進 localStorage，重新整理後配音要重做） ----------
 function save(){ localStorage.setItem('avsWeb_state', JSON.stringify({
   script: $('script').value,
-  segments: state.segments.map(s => ({ text: s.text, keyword: s.keyword, clip: s.clip, candidates: s.candidates })),
-  voice: state.voice, rate: $('rate').value,
+  segments: state.segments.map(s => ({ text: s.text, keyword: s.keyword, clip: s.clip, candidates: s.candidates, silentSec: s.silentSec })),
+  voice: state.voice, rate: $('rate').value, silent: state.silent, silentSec: state.silentSec,
   orientation: $('orientation').value, videoSource: $('videoSource').value, subtitles: $('subtitles').checked,
   musicVolume: $('musicVolume').value,
 })); }
@@ -755,6 +766,8 @@ function load(){
     state.segments = (s.segments||[]).map(seg => ({ ...seg, audio: null }));
     state.voice = s.voice||null;
     if(s.rate) $('rate').value = s.rate;
+    state.silent = !!s.silent;
+    state.silentSec = s.silentSec || 5;
     $('orientation').value = s.orientation||'landscape';
     $('videoSource').value = s.videoSource||'pexels';
     $('subtitles').checked = s.subtitles!==false;
@@ -986,11 +999,11 @@ function parseScript(){
     const keep = old && old.text===text;
     return { text, keyword: kw||text,
              clip: keep?old.clip:null, candidates: keep?(old.candidates||[]):[],
-             audio: keep?old.audio:null };
+             audio: keep?old.audio:null, silentSec: keep?old.silentSec:undefined };
   });
   $('parseInfo').textContent = `已建立 ${state.segments.length} 段。`;
   setDot(1,'ok',`${state.segments.length} 段`);
-  renderPicker(); refreshStatus(); save();
+  renderPicker(); applySilentUI(); refreshStatus(); save();
   return true;
 }
 $('btnParse').addEventListener('click', ()=>{ if(parseScript()) openStage(2); });
@@ -1458,6 +1471,37 @@ async function runTTS(){
   }finally{ $('btnTTS').disabled = false; }
 }
 $('btnTTS').addEventListener('click', runTTS);
+function applySilentUI(){
+  $('silentMode').checked = state.silent;
+  $('silentSec').value = state.silentSec;
+  $('silentSecWrap').style.display = state.silent ? '' : 'none';
+  $('voice').disabled = state.silent;
+  $('rate').disabled = state.silent;
+  $('silentBanner').style.display = state.silent ? '' : 'none';
+  $('ttsWrap').style.display = state.silent ? 'none' : '';
+  $('silentList').innerHTML = state.silent ? state.segments.map((s,i)=>`
+    <div class="seg"><div class="seg-top"><span class="seg-idx">S${i+1}</span>
+      <span class="seg-text">${esc(s.text)}</span>
+      <label class="opt" style="margin-left:auto"><input type="number" data-silentsec="${i}" min="0.5" max="600" step="0.5"
+        value="${segSec(s)}" style="width:70px" aria-label="S${i+1} 秒數"> 秒</label></div></div>`).join('') : '';
+}
+$('silentMode').addEventListener('change', ()=>{
+  state.silent = $('silentMode').checked;
+  applySilentUI(); refreshStatus(); save();
+});
+$('silentSec').addEventListener('change', ()=>{
+  const v = Math.max(1, Math.min(60, +$('silentSec').value || 5));
+  state.silentSec = v; $('silentSec').value = v;
+  state.segments.forEach(s=>{ delete s.silentSec; });   // 改預設秒數時，各段一起套用
+  applySilentUI(); refreshStatus(); save();
+});
+$('silentList').addEventListener('change', e=>{
+  const i = e.target.dataset.silentsec;
+  if(i==null || !state.segments[+i]) return;
+  const v = Math.max(0.5, Math.min(600, +e.target.value || state.silentSec));
+  state.segments[+i].silentSec = v; e.target.value = v;
+  refreshStatus(); save();
+});
 function renderAudio(){
   $('ttsEst').textContent = estTTS();
   $('audioList').innerHTML = state.segments.map((s,i)=> s.audio ? `
@@ -1469,6 +1513,7 @@ function renderAudio(){
 
 // ---------- 4 合成（canvas 逐幀合成 + MediaRecorder 即時錄製） ----------
 function totalDuration(){
+  if(state.silent) return state.segments.reduce((a,s)=>a+segSec(s),0);
   return state.segments.reduce((a,s)=>a+(s.audio?s.audio.duration:0),0);
 }
 function refreshTotal(){
@@ -1605,7 +1650,7 @@ async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, recCtl, 
   // 只換 src 播放（不是 decodeAudioData）——這個服務吐出的 mp3 幀邊界偶有不齊，
   // 瀏覽器原生播放管線能容忍、decodeAudioData 卻會直接拒收，見 measureAudioDuration() 註解。
   audioEl.pause();
-  audioEl.src = seg.audio.blobUrl;
+  if(!state.silent) audioEl.src = seg.audio.blobUrl;
 
   let raf = null;
   let lastFrameTime = 0;
@@ -1638,11 +1683,16 @@ async function playSegment(seg, ctx, W, H, audioEl, withSubs, portrait, recCtl, 
   // 的畫面當作第一格關鍵影格。素材下載/緩衝那幾秒空窗完全發生在這之前，不會被錄進去。
   if(onReady) await onReady();
 
-  await new Promise((resolve, reject)=>{
-    audioEl.addEventListener('ended', resolve, {once:true});
-    audioEl.addEventListener('error', ()=>reject(new Error('配音播放失敗')), {once:true});
-    audioEl.play().catch(reject);
-  });
+  if(state.silent){
+    // 靜音模式：沒有配音可等 ended，改為播滿這段指定秒數（配樂仍由另一個元素持續播放錄進去）
+    await new Promise(resolve => setTimeout(resolve, segSec(seg)*1000));
+  }else{
+    await new Promise((resolve, reject)=>{
+      audioEl.addEventListener('ended', resolve, {once:true});
+      audioEl.addEventListener('error', ()=>reject(new Error('配音播放失敗')), {once:true});
+      audioEl.play().catch(reject);
+    });
+  }
   cancelAnimationFrame(raf);
   video.pause();
   video.src = '';
@@ -1651,7 +1701,7 @@ async function runCompose(){
   const missing = [];
   state.segments.forEach((s,i)=>{
     if(!s.clip) missing.push(`S${i+1} 未選片`);
-    if(!s.audio) missing.push(`S${i+1} 未配音`);
+    if(!s.audio && !state.silent) missing.push(`S${i+1} 未配音`);
   });
   if(!state.segments.length){ alert('請先建立段落'); return; }
   if(missing.length){ alert('尚未就緒：\n'+missing.join('\n')); return; }
@@ -1861,7 +1911,12 @@ function refreshStatus(){
   const n = state.segments.length;
   const picked = state.segments.filter(s=>s.clip).length;
   const voiced = state.segments.filter(s=>s.audio).length;
-  if(n){
+  if(n && state.silent){
+    setDot(2, picked===n?'ok':'idle', `${picked}/${n} 已選片`);
+    setDot(3,'ok','靜音（不配音）');
+    if(picked===n && $('dot4').className.indexOf('run')<0 && $('dot4').className.indexOf('ok')<0)
+      setDot(4,'idle','素材就緒');
+  }else if(n){
     setDot(2, picked===n?'ok':'idle', `${picked}/${n} 已選片`);
     if(voiced===n) setDot(3,'ok',`${voiced}/${n} 已配音`);
     else if($('dot3').className.indexOf('run')<0) setDot(3,'idle', voiced?`${voiced}/${n} 已配音`:'等待腳本');
@@ -1876,7 +1931,7 @@ $('btnReset').addEventListener('click', ()=>{
   location.reload();
 });
 
-load(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint(); renderMusicPanel(); loadWatermarkImage();
+load(); applySilentUI(); loadVoices(); checkStatus(); renderMyClipsLibrary(); initComposeHint(); renderMusicPanel(); loadWatermarkImage();
 if(state.segments.length){
   $('parseInfo').textContent = `已載入上次的 ${state.segments.length} 段（配音需重新生成）。`;
   setDot(1,'ok',`${state.segments.length} 段`);

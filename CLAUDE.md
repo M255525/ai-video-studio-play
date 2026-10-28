@@ -102,6 +102,10 @@
 
 「02 選片」畫面方向旁加 `#videoSource`（`pexels`／`pixabay`／`both`，存在 state 的 `videoSource`）。瀏覽器直連 `pixabay.com/api/videos/`——已用 curl 確認 API 與 `cdn.pixabay.com` 影片都回 `Access-Control-Allow-Origin: *`，且 Playwright 實測 Pixabay CDN 影片 `crossOrigin='anonymous'` 畫進 canvas 後 `getImageData` 不會被汙染，合成錄製可用。**金鑰比照 Pexels 走同一個序號閘門**：`#pixabayKey`／`#btnSavePixabayKey` 跟 `#pexelsKey` 一起由 `setUnlocked()` 開關，localStorage `avsWeb_pixabayKey`，`searchPixabay()` 欄位 disabled 時直接丟錯。原 `searchOnce()` 改名 `searchPexels()`，新 `searchOnce()` 依來源分派；`both` 用 `Promise.allSettled` 兩邊都搜、交錯合併，兩邊都失敗才丟第一個錯。Pixabay 沒有方向參數，抓 50 筆後依寬高過濾；`simplifyPixabay()` 的 `id` 為 `pixabay_<n>`、`source:'pixabay'`，`pickClip()` 把 `v.source` 帶進 `clip.source`（其他程式只比對 `'upload'`，所以 `'pixabay'` 會走跟 Pexels 相同的遠端網址＋crossOrigin 路徑）。系統橫幅「尚未設定金鑰」改成兩組金鑰都沒填才顯示。已用 Playwright（mock fetch）驗證四種情境＋縮圖來源標籤＋選片，真實 API 錯誤金鑰回「Pixabay 查詢失敗（400，請確認金鑰是否正確）」；**尚未用有效 Pixabay 金鑰實測**。
 
+## 🔇 靜音模式（2026-10-28 新增，比照主版 `../index.html` 同日做法）
+
+「01 腳本」語速旁勾 `#silentMode` 即不配音，`#silentSec` 為每段預設秒數；「03 配音」改顯示逐段秒數（`seg.silentSec`），原本的配音區塊整個包在 `#ttsWrap` 裡隱藏（**注意 `#ttsPanel` 早已被「語音服務代理網址」的 `<details>` 用掉，別撞名**）。`avsWeb_state` 多存 `silent`／`silentSec`／每段 `silentSec`。合成時 `playSegment()` 在靜音模式下不換 `audioEl.src`，改用 `setTimeout(segSec(seg)*1000)` 播滿該段秒數再結束（原本是等配音 `ended`）；`recDest` 這條 MediaStreamDestination 沒有輸入時會持續送出無聲音訊，配樂元素照常混進去，所以輸出仍有音軌。`totalDuration()` 靜音時改加總秒數（進度條與配樂淡出都靠它）。已用 Playwright 對本機靜態伺服器實測兩段各 2 秒→輸出 .mp4 約 4.16 秒、狀態列正確。
+
 ## 🔓 序號驗證通過就移除浮水印（2026-09-16 新增）
 
 比照 `video-editor/mrvideo_s`（2026-08-19 已有的「浮水印與課程授權序號掛鉤」設計）補上同一個行為：這個純瀏覽器版原本浮水印是**固定燒錄、無法關閉**（見上方「架構總覽」），使用者要求改成「只要有登入序號就不要加浮水印」。做法與 mrvideo_s 一致——**每次真正按下「合成影片」都重新即時打一次驗證，不信任本機快取或畫面上目前顯示的解鎖狀態**：
