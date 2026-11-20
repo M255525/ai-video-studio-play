@@ -2151,5 +2151,56 @@ $('btnCopyWorkerSrc').addEventListener('click', async ()=>{
   }
 });
 </script>
+
+<!-- 使用警語（2026-11-20 補齊標準配備）：頁面上的入口加在訪客計數器旁，首次造訪自動跳出一次 -->
+<style>
+.mkw-mask{position:fixed;inset:0;background:rgba(15,18,22,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2147483000}
+.mkw-box{background:#fff;color:#222;max-width:520px;width:100%;max-height:calc(100vh - 32px);overflow:auto;border-radius:12px;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.3);font:15px/1.7 "Microsoft JhengHei","PingFang TC",system-ui,sans-serif;text-align:left}
+.mkw-box h2{margin:0 0 8px;font-size:1.15rem;color:#b3261e}
+.mkw-box ul{margin:0 0 14px;padding-left:1.2em}
+.mkw-box li{margin:4px 0}
+.mkw-box button{font:inherit;background:#b3261e;color:#fff;border:0;border-radius:8px;padding:8px 18px;cursor:pointer}
+.mkw-link{color:inherit;cursor:pointer;text-decoration:underline}
+.mkw-pill{position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:2147482000;background:rgba(255,255,255,.92);color:#b3261e;border:1px solid #b3261e;border-radius:999px;padding:3px 10px;font:13px/1.4 "Microsoft JhengHei",system-ui,sans-serif;cursor:pointer}
+@media (prefers-color-scheme:dark){.mkw-box{background:#24272b;color:#eee}.mkw-box h2{color:#ff8a80}}
+</style>
+<script>
+(function(){
+  var C = {"key":"mkw.ai-video-studio-play.seen","items":["影片素材來自 Pexels 免費圖庫，使用前請確認該素材的授權條款；自己上傳的素材請確定你有使用權。","合成語音與字幕可能有錯字或讀音錯誤，發布前請完整檢查一次。","影片在你的瀏覽器裡製作，不會上傳到本站；檔案較大時可能需要較多時間與記憶體。","本工具由個人開發、免費提供，僅供學習與參考；使用結果請自行判斷，作者不負任何責任。"],"noPill":false};
+  function open(){
+    if(document.querySelector('.mkw-mask')) return;
+    var m = document.createElement('div'); m.className = 'mkw-mask'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-label', '使用警語');
+    var b = document.createElement('div'); b.className = 'mkw-box';
+    var h = document.createElement('h2'); h.textContent = '⚠ 使用警語'; b.appendChild(h);
+    var ul = document.createElement('ul'); C.items.forEach(function(t){ var li = document.createElement('li'); li.textContent = t; ul.appendChild(li); }); b.appendChild(ul);
+    var ok = document.createElement('button'); ok.type = 'button'; ok.textContent = '我知道了'; b.appendChild(ok);
+    function close(){ m.remove(); document.removeEventListener('keydown', esc, true); try{ localStorage.setItem(C.key, '1'); }catch(e){} }
+    function esc(e){ if(e.key === 'Escape'){ e.stopPropagation(); close(); } }
+    ok.addEventListener('click', close); m.addEventListener('click', function(e){ if(e.target === m) close(); });
+    document.addEventListener('keydown', esc, true);
+    m.appendChild(b); document.body.appendChild(m); ok.focus();
+  }
+  function link(){ var a = document.createElement('a'); a.href = '#'; a.className = 'mkw-link'; a.textContent = '⚠ 使用警語'; a.addEventListener('click', function(e){ e.preventDefault(); open(); }); return a; }
+  // 入口放在訪客計數器旁邊（計數器是 JS 晚產生的也會補上）
+  function attach(){
+    var imgs = document.querySelectorAll('img[src*="visitor-badge"], img[src*="hits.sh"], img[src*="countapi"]'), n = 0;
+    Array.prototype.forEach.call(imgs, function(img){
+      var host = img.closest('a') || img;
+      if(host.previousSibling && host.previousSibling.className === 'mkw-sep') { n++; return; }
+      var s = document.createElement('span'); s.className = 'mkw-sep'; s.appendChild(link()); s.appendChild(document.createTextNode('　'));
+      host.parentNode.insertBefore(s, host); n++;
+    });
+    return n;
+  }
+  function init(){
+    var found = attach();
+    if(!found && !C.noPill){ var p = document.createElement('button'); p.type = 'button'; p.className = 'mkw-pill'; p.textContent = '⚠ 使用警語'; p.addEventListener('click', open); document.body.appendChild(p); }
+    var tm = null; if(window.MutationObserver) new MutationObserver(function(){ if(tm) return; tm = setTimeout(function(){ tm = null; attach(); }, 400); }).observe(document.body, {childList: true, subtree: true});
+    var seen = false; try{ seen = localStorage.getItem(C.key) === '1'; }catch(e){ seen = true; }
+    if(!seen) setTimeout(open, 600);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+</script>
 </body>
 </html>
