@@ -149,3 +149,10 @@ header 右側三顆圓點（`#themeSwitch`）切換整站底色：工作室灰�
 - `worker.js` 與頁面內嵌的 `#workerSourceCode`（給使用者自建專屬代理用）同步改連 `api.msedgeservices.com`（token 改用 `Ocp-Apim-Subscription-Key` 參數，上游 rany2/edge-tts PR #491），遇 429 等 1.5 秒重試一次；兩份仍逐字相同。
 - **2026-10-28**：`worker.js` 整份換成 `ai-voice-generator/web/worker.js` 的修好版（Cloudflare 連 msedgeservices 失敗，改回舊主機＋v2 Sec-MS-GEC、新端點備援；另含 Google 備援與 429 重試），內嵌 `#workerSourceCode` 同步且逐字相同。之後兩份 `worker.js` 保持一致，改一邊就複製到另一邊。
 - `slides.html`／`build_pptx.js` 教學簡報裡寫的預填網址同步更新（`.pptx` 要重新跑 `build_pptx.js` 才會更新）。
+
+## 2026-11-21：「03 配音」間歇失敗「沒有收到音訊資料」
+
+使用者回報配音生成失敗（與 Pexels／Pixabay 無關，選片來源不影響配音）。查證：**是微軟語音服務本身對 `zh-TW-YunJheNeural`（預設的「男聲・沉穩（台灣）」）不穩定**——連官方 Python `edge_tts` 直打 10 次也失敗 6 次（"No audio was received"），其他 5 個聲音 10/10 正常。原本 Worker 只對 429 重試、前端 `runTTS()` 任何一段失敗就整批中止，段落一多幾乎必失敗。修法：
+- `worker.js`：「沒有收到音訊資料／429／連線錯誤／逾時」都算暫時性錯誤，最多試 4 次（間隔 0.6 秒，429 為 1.5 秒）。已部署到 `ai-voice-generator-tts`（用 `ai-voice-generator/web` 的 `wrangler deploy -c wrangler.toml`），兩份 `worker.js` 與兩頁的內嵌 `#workerSourceCode` 仍逐字相同。
+- `index.html` `runTTS()`：每段再重試 3 次（2 秒、4 秒退避，畫面顯示重試中）；`seg.audio.key = 文字|聲音|語速`，再按一次「生成配音」只補沒配好／改過的段落；最後失敗訊息提示可換聲音。
+- 驗證：本機靜態站＋線上 Worker，5 段預設男聲全部成功（約 50 秒）、再按一次 0 秒跳過、換女聲 7 秒完成。若微軟端日後更糟，可考慮把預設聲音改成女聲。

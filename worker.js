@@ -356,13 +356,18 @@ export default {
       if (gLang) {
         audio = await synthesizeGoogle(text, gLang[1]);
       } else {
-        try {
-          audio = await synthesize(text, voice, rate);
-        } catch (e) {
-          // 新端點對短時間內連續請求會回 429（雙人對話逐句呼叫時最容易遇到），等一下重試一次
-          if (!/status=429/.test(String(e.message))) throw e;
-          await new Promise((r) => setTimeout(r, 1500));
-          audio = await synthesize(text, voice, rate);
+        // 微軟服務偶爾會「連線成功但不回音訊」（2026-11 實測 zh-TW-YunJheNeural 約 6 成機率，
+        // 連官方 Python edge_tts 也一樣），也會對連續請求回 429；這幾種暫時性錯誤最多試 4 次。
+        for (let attempt = 1; ; attempt++) {
+          try {
+            audio = await synthesize(text, voice, rate);
+            break;
+          } catch (e) {
+            const msg = String(e.message);
+            const transient = /沒有收到音訊資料|status=429|連線發生錯誤|逾時/.test(msg);
+            if (!transient || attempt >= 4) throw e;
+            await new Promise((r) => setTimeout(r, /429/.test(msg) ? 1500 : 600));
+          }
         }
       }
       return new Response(audio, {
