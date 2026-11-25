@@ -3,6 +3,12 @@
  * 而 Microsoft 這個線上語音合成服務會檢查 Origin，所以純前端頁面連不上。
  * 這個 Worker 跑在 Cloudflare 的伺服器端（不是瀏覽器），可以自訂 header，代替頁面去連。
  * 除此之外全部（Pexels 搜尋/下載、影片合成、字幕、浮水印）都在瀏覽器裡完成，這裡只轉發配音。
+ *
+ * 授權聲明：簽章演算法（generateSecMsGecV1／V2 與其 SHA-256、CS64 輔助函式）移植並改寫自 edge-tts 7.3.1
+ * （https://github.com/rany2/edge-tts ，LGPLv3，授權全文 https://www.gnu.org/licenses/lgpl-3.0.html ）。
+ * 這些部分與其修改沿用 LGPLv3，原始碼即本檔。
+ * 注意：這是未公開的線上語音服務，並非 Microsoft／Google 授權的 API，與各該公司無關；
+ * 沒有可確認的商業使用授權，僅供個人與教學試用，商業用途請改用 Azure AI Speech 等官方服務。
  */
 
 const TRUSTED_CLIENT_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
@@ -326,14 +332,31 @@ async function synthesizeGoogle(text, lang) {
   return out;
 }
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
+// 只允許自己的網站與本機開發呼叫（2026-11-25 起，原本是 *）。自行部署給別的網域用時，在這裡加上網址。
+const ALLOWED_ORIGINS = ['https://m255525.github.io'];
+function allowedOrigin(request) {
+  const o = request.headers.get('Origin') || '';
+  return ALLOWED_ORIGINS.includes(o) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o) ? o : '';
+}
+function corsHeaders(origin) {
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    Vary: 'Origin',
+  };
+}
 
 export default {
   async fetch(request) {
+    const origin = allowedOrigin(request);
+    if (!origin) {
+      return new Response(JSON.stringify({ error: '這個來源不可使用語音服務' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const CORS_HEADERS = corsHeaders(origin);
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: CORS_HEADERS });
     }

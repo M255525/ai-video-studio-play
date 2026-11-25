@@ -156,3 +156,6 @@ header 右側三顆圓點（`#themeSwitch`）切換整站底色：工作室灰�
 - `worker.js`：「沒有收到音訊資料／429／連線錯誤／逾時」都算暫時性錯誤，最多試 4 次（間隔 0.6 秒，429 為 1.5 秒）。已部署到 `ai-voice-generator-tts`（用 `ai-voice-generator/web` 的 `wrangler deploy -c wrangler.toml`），兩份 `worker.js` 與兩頁的內嵌 `#workerSourceCode` 仍逐字相同。
 - `index.html` `runTTS()`：每段再重試 3 次（2 秒、4 秒退避，畫面顯示重試中）；`seg.audio.key = 文字|聲音|語速`，再按一次「生成配音」只補沒配好／改過的段落；最後失敗訊息提示可換聲音。
 - 驗證：本機靜態站＋線上 Worker，5 段預設男聲全部成功（約 50 秒）、再按一次 0 秒跳過、換女聲 7 秒完成。若微軟端日後更糟，可考慮把預設聲音改成女聲。
+
+## 智財與來源限制（2026-11-25）
+`worker.js`（index.html 內嵌一份，兩份要逐字一致）加上 edge-tts 的 LGPLv3 授權聲明與「非官方服務、無商用授權」說明；CORS 從 `*` 改成只允許 `https://m255525.github.io` 與 localhost，其他來源回 403（curl 測試要自己帶 Origin）。使用警語同步說明並換 key（`.seen2`）讓舊使用者再看到一次。這仍是非官方服務，根本解法是改接 Azure AI Speech 等官方 API（content-workflow-studio-cf 已改），尚未決定。
