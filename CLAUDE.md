@@ -2,6 +2,13 @@
 
 「AI 影音工坊」的**純瀏覽器版**（2026-08-06 建立）。跟 [[AIvideo_Studio_online]]（需要 `python launcher.py` 本機後端）是完全不同的架構，目標是「打開網址就能玩」的 GitHub Pages 體驗，不需要下載安裝。這是使用者在同一次對話裡追加的需求：先做完 online 版（Python 後端）上傳 GitHub 之後，使用者又要「可以玩的 GitHub 網頁」，逼出這個全新的瀏覽器架構。
 
+## 配音架構（2026-11-25 起，優先於下面的歷史紀錄）
+
+- 語音代理 `worker.js`／`wrangler.toml` 已刪除，**不可恢復任何非官方語音端點**。下面提到 Worker、代理、微軟語音的段落都是歷史紀錄。
+- `tts.js`（與 `ai-voice-generator/web/tts.js` 逐字一致）：Google Gemini／OpenAI／ElevenLabs 官方 API，BYOK、瀏覽器直呼，設定存 `localStorage['mk.tts.v1']`。尚未用真實金鑰合成過。
+- 每段可「🎙 錄音」（MediaRecorder）或「📁 上傳音檔」→ `seg.audio.own=true`，`runTTS()` 不覆蓋；全部段落都是自己的旁白時不需要金鑰。`state.voice` 存聲音 id（舊的中文名稱會自動換成清單第一個）。
+- 本機的 `slides.html`／`build_pptx.js`／操作手冊 pptx（未進版控）還是舊說明。
+
 ## 架構總覽
 
 - **Pexels 搜尋／下載**：瀏覽器直接呼叫 `api.pexels.com` 與 `videos.pexels.com`（已用 `curl -H "Origin: ..."` 實測確認兩者都回 `Access-Control-Allow-Origin: *`，瀏覽器直連完全沒問題，不需要任何後端轉發）。
@@ -156,6 +163,3 @@ header 右側三顆圓點（`#themeSwitch`）切換整站底色：工作室灰�
 - `worker.js`：「沒有收到音訊資料／429／連線錯誤／逾時」都算暫時性錯誤，最多試 4 次（間隔 0.6 秒，429 為 1.5 秒）。已部署到 `ai-voice-generator-tts`（用 `ai-voice-generator/web` 的 `wrangler deploy -c wrangler.toml`），兩份 `worker.js` 與兩頁的內嵌 `#workerSourceCode` 仍逐字相同。
 - `index.html` `runTTS()`：每段再重試 3 次（2 秒、4 秒退避，畫面顯示重試中）；`seg.audio.key = 文字|聲音|語速`，再按一次「生成配音」只補沒配好／改過的段落；最後失敗訊息提示可換聲音。
 - 驗證：本機靜態站＋線上 Worker，5 段預設男聲全部成功（約 50 秒）、再按一次 0 秒跳過、換女聲 7 秒完成。若微軟端日後更糟，可考慮把預設聲音改成女聲。
-
-## 智財與來源限制（2026-11-25）
-`worker.js`（index.html 內嵌一份，兩份要逐字一致）加上 edge-tts 的 LGPLv3 授權聲明與「非官方服務、無商用授權」說明；CORS 從 `*` 改成只允許 `https://m255525.github.io` 與 localhost，其他來源回 403（curl 測試要自己帶 Origin）。使用警語同步說明並換 key（`.seen2`）讓舊使用者再看到一次。這仍是非官方服務，根本解法是改接 Azure AI Speech 等官方 API（content-workflow-studio-cf 已改），尚未決定。
