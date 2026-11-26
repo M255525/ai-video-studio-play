@@ -56,6 +56,21 @@ header .right{margin-left:auto;display:flex;gap:8px;align-items:center}
 .theme-dot:hover{transform:scale(1.15);}
 .theme-dot.active{border-color:var(--text);box-shadow:0 0 0 2px var(--panel2),0 0 0 4px var(--amber);}
 main{max-width:980px;margin:0 auto;padding:24px 20px 80px}
+/* ---- 上方「⚙ 設定」：序號登入／語音 API 金鑰／Pexels／Pixabay 各自獨立一張卡 ---- */
+.set-btn{border-color:var(--amber)!important;color:var(--amber)!important;font-weight:700}
+.settings{border:2px solid var(--amber-dim);border-radius:12px;background:var(--panel);margin:0 0 18px;padding:0}
+.settings>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:12px 18px}
+.settings>summary::-webkit-details-marker{display:none}
+.settings>summary::after{content:"▾ 展開";margin-left:auto;color:var(--muted);font-size:13px}
+.settings[open]>summary::after{content:"▴ 收合"}
+.set-title{font-weight:700;font-size:16px;color:var(--amber)}
+.set-sum{display:flex;flex-wrap:wrap;gap:6px}
+.set-sum span{font-size:12.5px;padding:2px 9px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
+.set-sum span.ok{color:var(--ok);border-color:var(--ok)}
+.set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;padding:0 18px 18px}
+.set-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel2);min-width:0}
+.set-card h3{font-size:15px;margin-bottom:6px}
+.set-card.flash{box-shadow:0 0 0 3px var(--amber)}
 
 .stage{
   border:1px solid var(--line);border-radius:10px;background:var(--panel);
@@ -310,6 +325,7 @@ body.has-marquee{padding-top:32px}
       <button type="button" class="theme-dot" data-theme-value="indigo" title="深藍片場" aria-label="切換為深藍片場底色"></button>
       <button type="button" class="theme-dot" data-theme-value="light" title="象牙白（淺色）" aria-label="切換為象牙白淺色底色"></button>
     </div>
+    <button id="btnSettings" class="set-btn" title="序號登入、API 金鑰、Pexels／Pixabay 金鑰">⚙ 設定</button>
     <button id="installBtn" title="加入主畫面，像 App 一樣開啟">📲 加入主畫面</button>
     <a href="manual.html" target="_blank"><button title="開啟操作手冊">📖 操作手冊</button></a>
     <button id="btnReset" title="清空目前專案">新專案</button>
@@ -350,6 +366,45 @@ body.has-marquee{padding-top:32px}
 })();
 </script>
 <main>
+
+<details id="settingsPanel" class="settings">
+  <summary><span class="set-title">⚙ 設定</span><span class="set-sum" id="setSummary"></span></summary>
+  <div class="set-grid">
+    <div class="set-card" id="setSerial">
+      <h3>🔐 序號登入</h3>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="pexelsSerial" style="width:100%;max-width:200px" placeholder="課程授權序號" aria-label="課程授權序號">
+        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏序號" aria-label="顯示／隱藏序號">👁</button>
+        <button id="btnPexelsSerial">確認</button>
+        <span class="tc" id="pexelsSerialMsg"></span>
+      </div>
+      <p class="hint">可以使用序號 <b>Aa1223456789</b> 登入，有效期到 2026/12/31。登入後才能填入並儲存 Pexels／Pixabay 金鑰，合成的影片也不會有浮水印。</p>
+    </div>
+    <div class="set-card" id="setTts">
+      <h3>🎙 語音服務 API 金鑰</h3>
+      <p class="hint">自動配音用你自己的 Google Gemini／OpenAI／ElevenLabs 金鑰（不需序號）。沒有金鑰也可以在「03 配音」每段錄音或上傳音檔。</p>
+      <div id="ttsSettings"></div>
+    </div>
+    <div class="set-card" id="setPexels">
+      <h3>🎬 Pexels 金鑰</h3>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰" disabled>
+        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
+        <button id="btnSaveKey" disabled>儲存</button>
+      </div>
+      <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
+    </div>
+    <div class="set-card" id="setPixabay">
+      <h3>🖼 Pixabay 金鑰（選用）</h3>
+      <div class="row" style="margin-top:10px">
+        <input type="password" id="pixabayKey" style="width:100%;max-width:320px" placeholder="Pixabay API 金鑰（只存在你的瀏覽器）" aria-label="Pixabay API 金鑰" disabled>
+        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
+        <button id="btnSavePixabayKey" disabled>儲存</button>
+      </div>
+      <p class="hint">到 <a href="https://pixabay.com/api/docs/" target="_blank" style="color:var(--amber)">pixabay.com/api/docs</a> 登入後免費取得（頁面中「key」參數那一串），填好後在「02 選片」的影片來源選 Pixabay 或 Pexels＋Pixabay。</p>
+    </div>
+  </div>
+</details>
 
 <div id="sysBanner"></div>
 <div class="banner">這個版本<b>完全在你的瀏覽器裡運算</b>，沒有伺服器上傳你的內容。合成時是「即時錄製」（跟影片長度差不多久），過程中請讓這個分頁保持在前景，切到背景分頁會讓錄製卡頓或畫面全黑。建議使用 <b>Chrome 或 Edge</b>。</div>
@@ -414,28 +469,7 @@ body.has-marquee{padding-top:32px}
         </select>
       </label>
     </div>
-    <details id="keyPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
-      <summary style="cursor:pointer;color:var(--muted)">🔑 Pexels／Pixabay API 金鑰（需序號解鎖）</summary>
-      <div class="row" style="margin-top:10px">
-        <input type="password" id="pexelsSerial" style="width:100%;max-width:200px" placeholder="課程授權序號" aria-label="課程授權序號">
-        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏序號" aria-label="顯示／隱藏序號">👁</button>
-        <button id="btnPexelsSerial">確認</button>
-        <span class="tc" id="pexelsSerialMsg"></span>
-      </div>
-      <p class="hint">可以使用序號 <b>Aa1223456789</b> 登入，有效期到 2026/12/31。序號驗證通過後才能填入並儲存 Pexels／Pixabay 金鑰。</p>
-      <div class="row" style="margin-top:10px">
-        <input type="password" id="pexelsKey" style="width:100%;max-width:320px" placeholder="Pexels API 金鑰（只存在你的瀏覽器）" aria-label="Pexels API 金鑰" disabled>
-        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
-        <button id="btnSaveKey" disabled>儲存</button>
-      </div>
-      <p class="hint">到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請。金鑰只存在你的瀏覽器裡，直接從瀏覽器打給 Pexels，不會經過任何伺服器。</p>
-      <div class="row" style="margin-top:10px">
-        <input type="password" id="pixabayKey" style="width:100%;max-width:320px" placeholder="Pixabay API 金鑰（只存在你的瀏覽器）" aria-label="Pixabay API 金鑰" disabled>
-        <button type="button" onclick="var i=this.previousElementSibling;i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈';" title="顯示／隱藏金鑰" aria-label="顯示／隱藏金鑰">👁</button>
-        <button id="btnSavePixabayKey" disabled>儲存</button>
-      </div>
-      <p class="hint">選用：到 <a href="https://pixabay.com/api/docs/" target="_blank" style="color:var(--amber)">pixabay.com/api/docs</a> 登入後免費取得金鑰（頁面中「key」參數那一串），填好後在上方「影片來源」選 Pixabay 或 Pexels＋Pixabay。同樣直接從瀏覽器打給 Pixabay。</p>
-    </details>
+    <p class="hint">🔑 Pexels／Pixabay 金鑰與序號登入請到上方 <a href="#settingsPanel" class="open-set" data-set="setPexels" style="color:var(--amber)">⚙ 設定</a>。</p>
     <details id="myClipsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
       <summary style="cursor:pointer;color:var(--muted)">📁 我的影片庫（上傳自己的影片素材）</summary>
       <div class="row" style="margin-top:10px">
@@ -460,11 +494,7 @@ body.has-marquee{padding-top:32px}
     <div id="silentList"></div>
     <div id="ttsWrap">
     <div class="banner" id="ttsUrlBanner"></div>
-    <details id="ttsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
-      <summary style="cursor:pointer;color:var(--amber)">🔑 語音服務（自動配音需要自己的 API 金鑰）</summary>
-      <div id="ttsSettings"></div>
-    </details>
-    <p class="hint">沒有金鑰也可以：在下面每一段按「🎙 錄音」念給麥克風，或「📁 上傳音檔」使用自己的旁白。</p>
+    <p class="hint">語音服務的 API 金鑰請到上方 <a href="#settingsPanel" class="open-set" data-set="setTts" style="color:var(--amber)">⚙ 設定</a> 填入。沒有金鑰也可以：在下面每一段按「🎙 錄音」念給麥克風，或「📁 上傳音檔」使用自己的旁白。</p>
     <div class="row">
       <button class="primary" id="btnTTS">生成全部配音</button>
       <span class="tc" id="ttsEst"></span>
@@ -618,7 +648,7 @@ function pickStateText(clip){
     if(!el) return;
     el.textContent = currentSerial
       ? '✓ 已偵測到有效的課程授權序號，合成時會重新確認一次，通過即不含浮水印。'
-      : '🔒 目前輸出的影片會有浮水印；輸入並驗證上方「課程授權序號」後即可移除。';
+      : '🔒 目前輸出的影片會有浮水印；在上方「⚙ 設定」登入課程授權序號後即可移除。';
   }
   function loadSavedSerial(){
     try{ return JSON.parse(localStorage.getItem(SERIAL_STATE_KEY) || 'null'); }catch(e){ return null; }
@@ -712,23 +742,56 @@ $('btnSavePixabayKey').addEventListener('click', ()=>{
 function renderTtsBanner(){
   $('ttsUrlBanner').textContent = MKTTS.hasKey()
     ? `語音服務：${MKTTS.label()}（用你自己的金鑰，由瀏覽器直接連線）`
-    : `尚未填入 ${MKTTS.label()} 的 API 金鑰。展開「🔑 語音服務」填入，或改用每段的錄音／上傳音檔。`;
+    : `尚未填入 ${MKTTS.label()} 的 API 金鑰。到上方「⚙ 設定」的 🎙 語音服務填入，或改用每段的錄音／上傳音檔。`;
 }
+
+// ---------- ⚙ 設定面板（序號登入／語音 API 金鑰／Pexels／Pixabay） ----------
+function openSettings(cardId){
+  const p = $('settingsPanel'); p.open = true;
+  if(cardId){
+    const c = $(cardId); if(!c) return;
+    c.scrollIntoView({behavior:'smooth', block:'center'});
+    c.classList.add('flash'); setTimeout(()=>c.classList.remove('flash'), 1600);
+  }
+}
+function updateSettingsSummary(){
+  const el = $('setSummary'); if(!el) return;
+  const serialOk = !$('pexelsKey').disabled;
+  let ttsOk = false, ttsLabel = '語音';
+  try{ ttsOk = MKTTS.hasKey(); ttsLabel = MKTTS.label(); }catch(e){}
+  const items = [
+    [serialOk, serialOk ? '🔐 序號已登入' : '🔐 序號未登入'],
+    [ttsOk, ttsOk ? '🎙 ' + ttsLabel + ' ✓' : '🎙 語音金鑰未填'],
+    [!!localKey(), localKey() ? '🎬 Pexels ✓' : '🎬 Pexels 未填'],
+    [!!localPixabayKey(), localPixabayKey() ? '🖼 Pixabay ✓' : '🖼 Pixabay 未填（選用）']
+  ];
+  el.innerHTML = items.map(([ok,t]) => '<span class="'+(ok?'ok':'')+'">'+t+'</span>').join('');
+}
+$('btnSettings').addEventListener('click', ()=>{
+  const p = $('settingsPanel');
+  p.open = !p.open;
+  if(p.open) p.scrollIntoView({behavior:'smooth', block:'start'});
+});
+document.addEventListener('click', e=>{
+  const a = e.target.closest('.open-set'); if(!a) return;
+  e.preventDefault(); openSettings(a.dataset.set);
+});
 
 // ---------- 系統狀態 ----------
 function checkStatus(){
   let html = '';
   if($('pexelsKey').disabled){
-    html += '<div class="banner">🔒 搜尋影片前請先在「02 選片」輸入<b>課程授權序號</b>解鎖 Pexels 金鑰欄位。</div>';
-    $('keyPanel').open = true;
+    html += '<div class="banner">🔒 搜尋影片前請先在上方「⚙ 設定」的 🔐 序號登入輸入<b>課程授權序號</b>，解鎖 Pexels 金鑰欄位。</div>';
+    openSettings();
   }else if(!localKey() && !localPixabayKey()){
-    html += '<div class="banner">尚未設定 <b>Pexels API 金鑰</b>（搜尋影片需要）。到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請後，填入「02 選片」的 🔑 金鑰欄位。</div>';
-    $('keyPanel').open = true;
+    html += '<div class="banner">尚未設定 <b>Pexels API 金鑰</b>（搜尋影片需要）。到 <a href="https://www.pexels.com/api/" target="_blank" style="color:var(--amber)">pexels.com/api</a> 免費申請後，填入上方「⚙ 設定」的 🎬 Pexels 金鑰。</div>';
+    openSettings();
   }
   if(!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream){
     html += '<div class="banner err">這個瀏覽器不支援即時錄製所需的功能（MediaRecorder / captureStream），請改用 Chrome 或 Edge。</div>';
   }
   $('sysBanner').innerHTML = html;
+  updateSettingsSummary();
 }
 checkStatus();
 
@@ -1265,7 +1328,7 @@ $('audioList').addEventListener('change', async e=>{
 async function runTTS(){
   if(!state.segments.length){ alert('請先在「01 腳本」建立段落'); return; }
   if(state.segments.every(s=>s.audio && s.audio.own)){ refreshStatus(); openStage(4); return; }
-  if(!MKTTS.hasKey()){ alert('請先展開「🔑 語音服務」填入 ' + MKTTS.label() + ' 的 API 金鑰，或改用每段的錄音／上傳音檔'); $('ttsPanel').open = true; return; }
+  if(!MKTTS.hasKey()){ alert('請先到上方「⚙ 設定」的 🎙 語音服務填入 ' + MKTTS.label() + ' 的 API 金鑰，或改用每段的錄音／上傳音檔'); openSettings('setTts'); return; }
   $('btnTTS').disabled = true;
   $('ttsBarWrap').style.display='block';
   setDot(3,'run','生成中');
@@ -1777,7 +1840,7 @@ $('btnReset').addEventListener('click', ()=>{
   location.reload();
 });
 
-MKTTS.mount($('ttsSettings')); MKTTS.onChange(()=>{ loadVoices(); save(); });
+MKTTS.mount($('ttsSettings')); MKTTS.onChange(()=>{ loadVoices(); save(); updateSettingsSummary(); });
 load(); applySilentUI(); loadVoices(); renderAudio(); checkStatus(); renderMyClipsLibrary(); initComposeHint(); renderMusicPanel(); loadWatermarkImage();
 if(state.segments.length){
   $('parseInfo').textContent = `已載入上次的 ${state.segments.length} 段（配音需重新生成）。`;
