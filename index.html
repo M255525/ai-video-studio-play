@@ -67,6 +67,8 @@ main{max-width:980px;margin:0 auto;padding:24px 20px 80px}
 .set-sum{display:flex;flex-wrap:wrap;gap:6px}
 .set-sum span{font-size:12.5px;padding:2px 9px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);color:var(--muted)}
 .set-sum span.ok{color:var(--ok);border-color:var(--ok)}
+.set-sum span[data-go]{cursor:pointer}
+.set-sum span[data-go]:hover{border-color:var(--amber);color:var(--amber)}
 .set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:12px;padding:0 18px 18px}
 .set-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel2);min-width:0}
 .set-card h3{font-size:15px;margin-bottom:6px}
@@ -756,19 +758,25 @@ function openSettings(cardId){
     c.classList.add('flash'); setTimeout(()=>c.classList.remove('flash'), 1600);
   }
 }
+var myClipCount = myClipCount || 0;
 function updateSettingsSummary(){
   const el = $('setSummary'); if(!el) return;
   const serialOk = !$('pexelsKey').disabled;
   let ttsOk = false, ttsLabel = '語音';
   try{ ttsOk = MKTTS.hasKey(); ttsLabel = MKTTS.label(); }catch(e){}
   const items = [
-    [serialOk, serialOk ? '🔐 序號已登入' : '🔐 序號未登入'],
-    [ttsOk, ttsOk ? '🎙 ' + ttsLabel + ' ✓' : '🎙 語音金鑰未填'],
-    [!!localKey(), localKey() ? '🎬 Pexels ✓' : '🎬 Pexels 未填'],
-    [!!localPixabayKey(), localPixabayKey() ? '🖼 Pixabay ✓' : '🖼 Pixabay 未填（選用）']
+    [serialOk, serialOk ? '🔐 序號已登入' : '🔐 序號未登入', 'setSerial'],
+    [ttsOk, ttsOk ? '🎙 ' + ttsLabel + ' ✓' : '🎙 語音金鑰未填', 'setTts'],
+    [!!localKey(), localKey() ? '🎬 Pexels ✓' : '🎬 Pexels 未填', 'setPexels'],
+    [!!localPixabayKey(), localPixabayKey() ? '🖼 Pixabay ✓' : '🖼 Pixabay 未填（選用）', 'setPixabay'],
+    [myClipCount > 0, myClipCount ? '📁 我的影片庫 ' + myClipCount + ' 支' : '📁 我的影片庫（空）', 'setClips']
   ];
-  el.innerHTML = items.map(([ok,t]) => '<span class="'+(ok?'ok':'')+'">'+t+'</span>').join('');
+  el.innerHTML = items.map(([ok,t,go]) => '<span class="'+(ok?'ok':'')+'" data-go="'+go+'" title="點一下跳到這一項">'+t+'</span>').join('');
 }
+$('setSummary').addEventListener('click', e=>{
+  const s = e.target.closest('[data-go]'); if(!s) return;
+  e.preventDefault(); e.stopPropagation(); openSettings(s.dataset.go);
+});
 $('btnSettings').addEventListener('click', ()=>{
   const p = $('settingsPanel');
   p.open = !p.open;
@@ -1107,6 +1115,7 @@ function readVideoMeta(file){
 async function renderMyClipsLibrary(){
   const clips = await dbGetAll();
   clips.sort((a,b)=>b.addedAt-a.addedAt);
+  myClipCount = clips.length; updateSettingsSummary();
   $('myClipsGrid').innerHTML = clips.length ? clips.map(c=>`
     <div class="thumb" title="${esc(c.name)}">
       <img src="${c.thumb}" alt="${esc(c.name)}">
