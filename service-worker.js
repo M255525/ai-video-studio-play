@@ -1,5 +1,5 @@
 // 僅供「加入主畫面」安裝需求使用：network-first + 同源快取備援，不快取跨網域請求（Pexels／語音服務）。
-const CACHE_NAME = 'ai-video-studio-play-shell-v5';
+const CACHE_NAME = 'ai-video-studio-play-shell-v6';
 const SHELL_FILES = [
   './',
   './index.html',

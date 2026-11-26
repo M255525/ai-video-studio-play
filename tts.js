@@ -88,17 +88,17 @@
     return { url: 'https://api.openai.com/v1/audio/speech', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + k }, body: body };
   }
   function explain(status, msg) {
-    if (status === 401 || status === 403) return '金鑰不正確或沒有使用權限，請檢查「🔑 語音服務」的金鑰（' + status + '）';
+    if (status === 401 || status === 403) return '金鑰不正確或沒有使用權限，請檢查「語音服務」設定裡的金鑰（' + status + '）';
     if (status === 404) return '找不到這個模型或聲音，請檢查設定（404）：' + msg;
     if (status === 429) return '額度用完或太頻繁（429），請稍後再試或檢查帳戶額度';
-    if (status === 400 && /api key/i.test(msg)) return '金鑰不正確，請檢查「🔑 語音服務」的金鑰';
+    if (status === 400 && /api key/i.test(msg)) return '金鑰不正確，請檢查「語音服務」設定裡的金鑰';
     return '語音服務回應 ' + status + '：' + msg;
   }
   /* 合成一段語音，回傳 {bytes, mime, ext} */
   async function speak(text, voiceId, rate) {
     var P = PROVIDERS[cfg().provider];
-    if (!apiKey()) throw new Error('尚未填入 ' + P.label + ' 的 API 金鑰，請展開「🔑 語音服務」設定');
-    if (!voiceId) throw new Error('尚未選擇聲音' + (cfg().provider === 'elevenlabs' ? '，請在「🔑 語音服務」填入 ElevenLabs 的語音 ID' : ''));
+    if (!apiKey()) throw new Error('尚未填入 ' + P.label + ' 的 API 金鑰，請到「語音服務」設定填入');
+    if (!voiceId) throw new Error('尚未選擇聲音' + (cfg().provider === 'elevenlabs' ? '，請在「語音服務」設定填入 ElevenLabs 的語音 ID' : ''));
     if (text.length > P.max) throw new Error('單次最多 ' + P.max + ' 字，目前 ' + text.length + ' 字，請分段');
     var r = request(text, voiceId, rate);
     for (var attempt = 1; ; attempt++) {
@@ -191,7 +191,8 @@
       box.innerHTML = '<div class="mktts" data-p="' + c.provider + '">'
         + '<label>語音服務<select data-t="provider">' + Object.keys(PROVIDERS).map(function (k) { return '<option value="' + k + '"' + (k === c.provider ? ' selected' : '') + '>' + PROVIDERS[k].label + '</option>'; }).join('') + '</select></label>'
         + '<label>API 金鑰<input type="password" data-t="key" autocomplete="off" value="' + esc(c.keys[c.provider] || '') + '" placeholder="貼上 ' + P.label + ' 的 API 金鑰"></label>'
-        + '<label>模型（選填）<input type="text" data-t="model" value="' + esc(c.models[c.provider] || '') + '" placeholder="預設 ' + P.model + '"></label>'
+        + '<label>模型（已帶入建議模型，通常不用改）<input type="text" data-t="model" value="' + esc(c.models[c.provider] || P.model) + '" placeholder="' + P.model + '"></label>'
+        + (c.models[c.provider] && c.models[c.provider] !== P.model ? '<p class="hint">目前用自訂模型，建議模型是 ' + P.model + '。<button type="button" data-t="usedef">改回建議模型</button></p>' : '<p class="hint">選好服務會自動帶入建議模型，只要貼上 API 金鑰就能配音。</p>')
         + (c.provider === 'elevenlabs' ? '<label>語音 ID（一行一個，可寫「名稱=ID」）<textarea data-t="eleven" rows="3" placeholder="旁白=21m00Tcm4TlvDq8ikWAM">' + esc(c.elevenVoices) + '</textarea></label>' : '')
         + '<p class="hint">金鑰申請：<a href="' + P.keyUrl + '" target="_blank" rel="noopener">' + P.label + '</a>。' + P.note
         + '金鑰只存在這台電腦的瀏覽器，文字直接送到你選的服務商，不經過本站伺服器。' + (canSpeed() ? '' : '這個設定不支援調整語速。') + '</p>'
@@ -203,10 +204,16 @@
       var host = e.target.closest('.mktts'), p = (host && host.getAttribute('data-p')) || c.provider;
       if (t === 'provider') c.provider = PROVIDERS[e.target.value] ? e.target.value : 'gemini';
       if (t === 'key') c.keys[p] = e.target.value.trim();
-      if (t === 'model') c.models[p] = e.target.value.trim();
+      if (t === 'model') { var mv = e.target.value.trim(); if (!mv || mv === PROVIDERS[p].model) delete c.models[p]; else c.models[p] = mv; }
       if (t === 'eleven') c.elevenVoices = e.target.value;
       saveCfg();
       if (t !== 'key') draw();
+      listeners.forEach(function (f) { f(); });
+    });
+    box.addEventListener('click', function (e) {
+      if (!e.target.getAttribute || e.target.getAttribute('data-t') !== 'usedef') return;
+      delete cfg().models[cfg().provider];
+      saveCfg(); draw();
       listeners.forEach(function (f) { f(); });
     });
     draw();

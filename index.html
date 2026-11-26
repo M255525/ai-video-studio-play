@@ -71,6 +71,7 @@ main{max-width:980px;margin:0 auto;padding:24px 20px 80px}
 .set-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel2);min-width:0}
 .set-card h3{font-size:15px;margin-bottom:6px}
 .set-card.flash{box-shadow:0 0 0 3px var(--amber)}
+.set-card.set-wide{grid-column:1/-1}
 
 .stage{
   border:1px solid var(--line);border-radius:10px;background:var(--panel);
@@ -403,6 +404,15 @@ body.has-marquee{padding-top:32px}
       </div>
       <p class="hint">到 <a href="https://pixabay.com/api/docs/" target="_blank" style="color:var(--amber)">pixabay.com/api/docs</a> 登入後免費取得（頁面中「key」參數那一串），填好後在「02 選片」的影片來源選 Pixabay 或 Pexels＋Pixabay。</p>
     </div>
+    <div class="set-card set-wide" id="setClips">
+      <h3>📁 我的影片庫（上傳自己的影片素材）</h3>
+      <div class="row" style="margin-top:10px">
+        <input type="file" id="myClipUpload" accept="video/*" multiple aria-label="上傳影片檔案">
+      </div>
+      <p class="hint">上傳的影片只存在你的瀏覽器裡（IndexedDB），不會上傳到任何伺服器；建議單支在數十 MB 內，太大的檔案可能讓瀏覽器變慢或占用大量空間。上傳後可在下方各段落按「📁 我的影片庫」套用。</p>
+      <p class="jobmsg" id="myClipMsg"></p>
+      <div class="thumbgrid" id="myClipsGrid"></div>
+    </div>
   </div>
 </details>
 
@@ -470,15 +480,7 @@ body.has-marquee{padding-top:32px}
       </label>
     </div>
     <p class="hint">🔑 Pexels／Pixabay 金鑰與序號登入請到上方 <a href="#settingsPanel" class="open-set" data-set="setPexels" style="color:var(--amber)">⚙ 設定</a>。</p>
-    <details id="myClipsPanel" style="border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:10px 0">
-      <summary style="cursor:pointer;color:var(--muted)">📁 我的影片庫（上傳自己的影片素材）</summary>
-      <div class="row" style="margin-top:10px">
-        <input type="file" id="myClipUpload" accept="video/*" multiple aria-label="上傳影片檔案">
-      </div>
-      <p class="hint">上傳的影片只存在你的瀏覽器裡（IndexedDB），不會上傳到任何伺服器；建議單支在數十 MB 內，太大的檔案可能讓瀏覽器變慢或占用大量空間。上傳後可在下方各段落按「📁 我的影片庫」套用。</p>
-      <p class="jobmsg" id="myClipMsg"></p>
-      <div class="thumbgrid" id="myClipsGrid"></div>
-    </details>
+    <p class="hint">📁 想用自己的影片？到上方 <a href="#settingsPanel" class="open-set" data-set="setClips" style="color:var(--amber)">⚙ 設定</a> 的「我的影片庫」上傳，再在各段按「📁 我的影片庫」套用。</p>
     <div id="pickList"></div>
   </div>
 </section>
